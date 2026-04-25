@@ -9,13 +9,13 @@ import { Separator } from "@/components/ui/separator"
 import { loadProfile, clearProfile, type StoredProfile } from "@/lib/storage"
 import type { ProfileSummary } from "@/lib/claude"
 import { ELEMENTS, type Element } from "@/lib/saju-data"
-import { RefreshCw, LogOut } from "lucide-react"
+import { RefreshCw, LogOut, Sparkles, Sun } from "lucide-react"
 
 const ELEMENT_COLORS: Record<Element, string> = {
   목: "bg-green-500",
   화: "bg-red-500",
   토: "bg-yellow-500",
-  금: "bg-gray-300",
+  금: "bg-gray-400",
   수: "bg-blue-500",
 }
 
@@ -23,7 +23,7 @@ const ELEMENT_TEXT_COLORS: Record<Element, string> = {
   목: "text-green-600 dark:text-green-400",
   화: "text-red-600 dark:text-red-400",
   토: "text-yellow-600 dark:text-yellow-400",
-  금: "text-gray-600 dark:text-gray-300",
+  금: "text-gray-500 dark:text-gray-300",
   수: "text-blue-600 dark:text-blue-400",
 }
 
@@ -57,7 +57,6 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error("프로필 생성 실패")
       const data = await res.json()
       setSummary(data.summary)
-      // 로컬에도 저장
       const updated = { ...profile, summary: data.summary }
       setProfile(updated)
       const { saveProfile } = await import("@/lib/storage")
@@ -82,19 +81,57 @@ export default function ProfilePage() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between pt-2">
-        <div>
-          <h1 className="text-xl font-bold">내 사주 프로필</h1>
+      {/* 히어로 섹션 — 일간 성격 강조 */}
+      <div className="relative rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10 p-5 overflow-hidden">
+        <div className="absolute top-3 right-3">
+          <Button variant="ghost" size="icon" onClick={handleReset} title="다시 입력" className="h-8 w-8">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
             {profile.birthInfo.year}년 {profile.birthInfo.month}월 {profile.birthInfo.day}일
-            {profile.birthInfo.isLunar ? " (음력)" : " (양력)"}
+            {profile.birthInfo.isLunar ? " (음력)" : " (양��)"}
           </p>
+          <h1 className="text-2xl font-bold text-primary">
+            {saju.dayStem} — {saju.dayStemDescription}
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {saju.dayStemPersonality}
+          </p>
+          <div className="flex gap-2 pt-1">
+            <Badge variant="secondary" className="text-xs">
+              용신: {ELEMENTS[saju.usefulGod as Element].name}
+            </Badge>
+            {saju.yearPillar.animal && (
+              <Badge variant="secondary" className="text-xs">
+                {saju.yearPillar.animal}띠
+              </Badge>
+            )}
+          </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleReset} title="다시 입력">
-          <LogOut className="h-4 w-4" />
-        </Button>
       </div>
+
+      {/* 오늘의 일진 — 골드 하이라이트 */}
+      {saju.todayPillar && (
+        <Card className="border-accent/30 bg-accent/5">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center">
+                <Sun className="h-4 w-4 text-accent" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-accent-foreground/70 mb-1">
+                  오늘의 일진: {saju.todayPillar.pillar} ({saju.todayPillar.pillarHanja})
+                </p>
+                <p className="text-sm leading-relaxed">
+                  {saju.todayInteraction}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 사주팔자 카드 */}
       <Card>
@@ -113,7 +150,7 @@ export default function ProfilePage() {
                 <p className="text-[10px] text-muted-foreground">{label}</p>
                 {pillar ? (
                   <>
-                    <div className="rounded-md bg-muted p-2">
+                    <div className="rounded-xl bg-muted/60 p-2">
                       <p className="text-lg font-bold">{pillar.pillarHanja}</p>
                       <p className="text-xs text-muted-foreground">{pillar.pillar}</p>
                     </div>
@@ -129,11 +166,11 @@ export default function ProfilePage() {
                       <p className="text-[10px] text-muted-foreground">{pillar.tenGod}</p>
                     )}
                     {label === "일주" && (
-                      <p className="text-[10px] font-medium">본인</p>
+                      <p className="text-[10px] font-medium text-primary">본인</p>
                     )}
                   </>
                 ) : (
-                  <div className="rounded-md bg-muted p-2">
+                  <div className="rounded-xl bg-muted/60 p-2">
                     <p className="text-lg text-muted-foreground">?</p>
                     <p className="text-xs text-muted-foreground">미상</p>
                   </div>
@@ -149,7 +186,7 @@ export default function ProfilePage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">오행 분포</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2.5">
           {(Object.entries(elements) as [Element, number][]).map(([el, count]) => (
             <div key={el} className="flex items-center gap-3">
               <span className={`text-sm font-medium w-12 ${ELEMENT_TEXT_COLORS[el]}`}>
@@ -157,65 +194,27 @@ export default function ProfilePage() {
               </span>
               <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${ELEMENT_COLORS[el]}`}
+                  className={`h-full rounded-full transition-all duration-500 ${ELEMENT_COLORS[el]}`}
                   style={{ width: maxElement > 0 ? `${(count / maxElement) * 100}%` : "0%" }}
                 />
               </div>
               <span className="text-sm font-mono w-4 text-right">{count}</span>
             </div>
           ))}
-          <div className="flex gap-2 mt-3">
-            <Badge variant="secondary" className="text-xs">
-              용신: {ELEMENTS[saju.usefulGod as Element].name}
-            </Badge>
-            {saju.yearPillar.animal && (
-              <Badge variant="secondary" className="text-xs">
-                {saju.yearPillar.animal}띠
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 일간 성격 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            일간: {saju.dayStem} — {saju.dayStemDescription}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {saju.dayStemPersonality}
-          </p>
-          <Separator className="my-3" />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground pt-1">
             {saju.usefulGodReason}
           </p>
         </CardContent>
       </Card>
 
-      {/* 오늘의 일진 */}
-      {saju.todayPillar && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              오늘의 일진: {saju.todayPillar.pillar} ({saju.todayPillar.pillarHanja})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed">
-              {saju.todayInteraction}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {/* AI 프로필 요약 */}
-      <Card>
+      <Card className="border-primary/20">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">AI 프로필 분석</CardTitle>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base">AI 프로필 분��</CardTitle>
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -259,9 +258,21 @@ export default function ProfilePage() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              AI가 당신의 사주를 분석합니다. &quot;분석하기&quot;를 눌러보세요.
-            </p>
+            <div className="text-center py-4">
+              <Sparkles className="h-8 w-8 mx-auto text-primary/30 mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                AI가 당신의 사주를 깊이 분석합니다.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadAISummary}
+                disabled={isLoadingSummary}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                분석 시작하기
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

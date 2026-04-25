@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { saveProfile, loadProfile, type StoredProfile } from "@/lib/storage"
+import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react"
 
 const HOURS = [
   { value: "-1", label: "모르겠어요" },
@@ -26,8 +26,15 @@ const HOURS = [
   { value: "21", label: "해시 (21:30~23:30)" },
 ]
 
+const STEP_MESSAGES = [
+  "반가워요! 당신만의 사주 코치가 되어드릴게요.",
+  "태어난 시간을 알면 더 정확한 분석이 가능해요.",
+  "마지막 단계예요. 준비되셨나요?",
+]
+
 export default function OnboardingPage() {
   const router = useRouter()
+  const [step, setStep] = useState(0)
   const [year, setYear] = useState("")
   const [month, setMonth] = useState("")
   const [day, setDay] = useState("")
@@ -37,7 +44,6 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // 이미 프로필이 있으면 프로필 페이지로 리다이렉트
   useEffect(() => {
     const existing = loadProfile()
     if (existing) {
@@ -45,31 +51,21 @@ export default function OnboardingPage() {
     }
   }, [router])
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError("")
+  function canProceedStep0() {
+    const y = parseInt(year)
+    const m = parseInt(month)
+    const d = parseInt(day)
+    return y >= 1900 && y <= 2050 && m >= 1 && m <= 12 && d >= 1 && d <= 31
+  }
 
+  async function handleSubmit() {
+    setError("")
     const y = parseInt(year)
     const m = parseInt(month)
     const d = parseInt(day)
 
     if (!y || !m || !d) {
       setError("생년월일을 입력해주세요")
-      return
-    }
-
-    if (y < 1900 || y > 2050) {
-      setError("1900~2050년 사이의 생년을 입력해주세요")
-      return
-    }
-
-    if (m < 1 || m > 12) {
-      setError("올바른 월(1~12)을 입력해주세요")
-      return
-    }
-
-    if (d < 1 || d > 31) {
-      setError("올바른 일(1~31)을 입력해주세요")
       return
     }
 
@@ -85,7 +81,6 @@ export default function OnboardingPage() {
         gender: gender || undefined,
       }
 
-      // 사주 계산 API 호출
       const res = await fetch("/api/saju", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,71 +94,87 @@ export default function OnboardingPage() {
 
       const data = await res.json()
 
-      // 로컬 저장
       const storedProfile: StoredProfile = {
         birthInfo,
         sajuProfile: data.profile,
         createdAt: new Date().toISOString(),
       }
       saveProfile(storedProfile)
-
-      // 프로필 페이지로 이동
       router.push("/profile")
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다")
-    } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* 헤더 */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">한 수</h1>
-          <p className="text-muted-foreground text-sm">
-            AI 사주 라이프 코치
-          </p>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            사주로 읽는 오늘의 한 수.<br />
-            지금 당신에게 필요한 구체적인 행동을 알려드립니다.
-          </p>
-        </div>
+    <div className="flex min-h-svh flex-col bg-gradient-to-b from-primary/5 via-background to-background">
+      <div className="flex flex-1 flex-col items-center justify-center p-5">
+        <div className="w-full max-w-md space-y-8">
+          {/* 브랜드 헤더 */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-2">
+              <Sparkles className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-primary">한 수</h1>
+            <p className="text-muted-foreground text-sm">
+              AI 사주 라이프 코치
+            </p>
+          </div>
 
-        {/* 입력 폼 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">생년월일시를 알려주세요</CardTitle>
-            <CardDescription>
-              정확한 사주 분석을 위해 필요합니다. 태어난 시간을 모르면 건너뛸 수 있어요.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* 양력/음력 */}
+          {/* 프로그레스 인디케이터 */}
+          <div className="flex items-center justify-center gap-2">
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === step
+                    ? "w-8 bg-primary"
+                    : i < step
+                    ? "w-4 bg-primary/40"
+                    : "w-4 bg-border"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* 대화 버블 */}
+          <div className="bg-card border border-border rounded-2xl rounded-tl-sm p-4 shadow-sm">
+            <p className="text-sm leading-relaxed">{STEP_MESSAGES[step]}</p>
+          </div>
+
+          {/* Step 0: 생년월일 */}
+          {step === 0 && (
+            <div className="space-y-5">
               <div className="space-y-2">
-                <Label>달력</Label>
+                <Label className="text-xs text-muted-foreground">달력</Label>
                 <RadioGroup
                   value={calendarType}
                   onValueChange={v => setCalendarType(v as "solar" | "lunar")}
-                  className="flex gap-4"
+                  className="flex gap-3"
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="solar" id="solar" />
-                    <Label htmlFor="solar" className="font-normal cursor-pointer">양력</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="lunar" id="lunar" />
-                    <Label htmlFor="lunar" className="font-normal cursor-pointer">음력</Label>
-                  </div>
+                  {[
+                    { value: "solar", label: "양력" },
+                    { value: "lunar", label: "음력" },
+                  ].map(opt => (
+                    <label
+                      key={opt.value}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-xl border p-3 cursor-pointer transition-all ${
+                        calendarType === opt.value
+                          ? "border-primary bg-primary/5 text-primary font-medium"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                      <span className="text-sm">{opt.label}</span>
+                    </label>
+                  ))}
                 </RadioGroup>
               </div>
 
-              {/* 생년월일 */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="year">년</Label>
+                  <Label htmlFor="year" className="text-xs text-muted-foreground">년</Label>
                   <Input
                     id="year"
                     type="number"
@@ -172,10 +183,11 @@ export default function OnboardingPage() {
                     onChange={e => setYear(e.target.value)}
                     min={1900}
                     max={2050}
+                    className="text-center"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="month">월</Label>
+                  <Label htmlFor="month" className="text-xs text-muted-foreground">월</Label>
                   <Input
                     id="month"
                     type="number"
@@ -184,10 +196,11 @@ export default function OnboardingPage() {
                     onChange={e => setMonth(e.target.value)}
                     min={1}
                     max={12}
+                    className="text-center"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="day">일</Label>
+                  <Label htmlFor="day" className="text-xs text-muted-foreground">일</Label>
                   <Input
                     id="day"
                     type="number"
@@ -196,15 +209,39 @@ export default function OnboardingPage() {
                     onChange={e => setDay(e.target.value)}
                     min={1}
                     max={31}
+                    className="text-center"
                   />
                 </div>
               </div>
 
-              {/* 태어난 시간 */}
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => {
+                  if (canProceedStep0()) {
+                    setError("")
+                    setStep(1)
+                  } else {
+                    setError("올바른 생년월일을 입력해주세요")
+                  }
+                }}
+                disabled={!year || !month || !day}
+              >
+                다음
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
+
+          {/* Step 1: 태어난 시간 */}
+          {step === 1 && (
+            <div className="space-y-5">
               <div className="space-y-2">
-                <Label>태어난 시간</Label>
+                <Label className="text-xs text-muted-foreground">태어난 시간</Label>
                 <Select value={hour} onValueChange={setHour}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-12">
                     <SelectValue placeholder="시간을 선택하세요" />
                   </SelectTrigger>
                   <SelectContent>
@@ -217,39 +254,95 @@ export default function OnboardingPage() {
                 </Select>
               </div>
 
-              {/* 성별 (선택) */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setStep(0)}
+                  className="w-12"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  className="flex-1"
+                  size="lg"
+                  onClick={() => setStep(2)}
+                >
+                  다음
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: 성별 + 분석 시작 */}
+          {step === 2 && (
+            <div className="space-y-5">
               <div className="space-y-2">
-                <Label>성별 <span className="text-muted-foreground text-xs">(선택)</span></Label>
+                <Label className="text-xs text-muted-foreground">
+                  성별 <span className="text-muted-foreground/60">(선택)</span>
+                </Label>
                 <RadioGroup
                   value={gender}
                   onValueChange={v => setGender(v as "M" | "F")}
-                  className="flex gap-4"
+                  className="flex gap-3"
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="M" id="male" />
-                    <Label htmlFor="male" className="font-normal cursor-pointer">남성</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="F" id="female" />
-                    <Label htmlFor="female" className="font-normal cursor-pointer">여성</Label>
-                  </div>
+                  {[
+                    { value: "M", label: "남성" },
+                    { value: "F", label: "여성" },
+                  ].map(opt => (
+                    <label
+                      key={opt.value}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-xl border p-3 cursor-pointer transition-all ${
+                        gender === opt.value
+                          ? "border-primary bg-primary/5 text-primary font-medium"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                      <span className="text-sm">{opt.label}</span>
+                    </label>
+                  ))}
                 </RadioGroup>
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                {isLoading ? "사주를 분석하고 있어요..." : "내 사주 보기"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setStep(1)}
+                  className="w-12"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  className="flex-1"
+                  size="lg"
+                  onClick={handleSubmit}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      사주를 읽고 있어요...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      내 사주 분석 시작
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
 
-        <p className="text-center text-xs text-muted-foreground">
-          입력한 정보는 브라우저에만 저장되며, 서버에 보관되지 않습니다.
-        </p>
+          <p className="text-center text-[11px] text-muted-foreground/70">
+            입력한 정보는 브라우저에만 저장되며, 서버에 보관되지 않습니다.
+          </p>
+        </div>
       </div>
     </div>
   )

@@ -46,7 +46,7 @@ export default function JournalPage() {
         </div>
         <Card>
           <CardContent className="py-12 text-center">
-            <MessageCircle className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <MessageCircle className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground">아직 상담 기록이 없어요.</p>
             <Button
               variant="outline"
@@ -73,7 +73,7 @@ export default function JournalPage() {
 
       {/* 통계 (3회 이상) */}
       {stats && (
-        <Card>
+        <Card className="bg-primary/5 border-primary/10">
           <CardContent className="py-3">
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">상담 횟수</span>
@@ -86,11 +86,14 @@ export default function JournalPage() {
             <div className="flex gap-1 mt-2">
               {(Object.entries(stats.characterCounts) as [string, number][])
                 .filter(([, count]) => count > 0)
-                .map(([type, count]) => (
-                  <Badge key={type} variant="secondary" className="text-[10px]">
-                    {CHARACTERS[type as keyof typeof CHARACTERS].emoji} {count}
-                  </Badge>
-                ))}
+                .map(([type, count]) => {
+                  const charInfo = CHARACTERS[type as keyof typeof CHARACTERS]
+                  return (
+                    <Badge key={type} variant="secondary" className={`text-[10px] ${charInfo.textColor}`}>
+                      {charInfo.emoji} {count}
+                    </Badge>
+                  )
+                })}
             </div>
           </CardContent>
         </Card>
@@ -105,98 +108,115 @@ export default function JournalPage() {
           const timeAgo = getTimeAgo(date)
 
           return (
-            <Card key={consultation.id}>
-              <CardHeader className="pb-2 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : consultation.id)}>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{charInfo.emoji}</span>
-                      <CardTitle className="text-sm">{charInfo.name}</CardTitle>
-                      <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
+            <Card
+              key={consultation.id}
+              className={`overflow-hidden transition-all ${isExpanded ? `${charInfo.borderColor} border-2` : ""}`}
+            >
+              {/* 캐릭터 컬러 좌측 보더 */}
+              <div className="flex">
+                <div
+                  className={`w-1 flex-shrink-0 ${
+                    consultation.characterType === "sibling"
+                      ? "bg-[var(--color-sibling)]"
+                      : consultation.characterType === "grandma"
+                      ? "bg-[var(--color-grandma)]"
+                      : "bg-[var(--color-analyst)]"
+                  }`}
+                />
+                <div className="flex-1">
+                  <CardHeader className="pb-2 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : consultation.id)}>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{charInfo.emoji}</span>
+                          <CardTitle className="text-sm">{charInfo.name}</CardTitle>
+                          <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {consultation.question}
+                        </p>
+                      </div>
+                      {consultation.feedback && (
+                        <Badge variant={consultation.feedback === "helpful" ? "default" : "secondary"} className="text-[10px]">
+                          {consultation.feedback === "helpful" ? "도움됨" : consultation.feedback === "not_helpful" ? "별로" : "아직"}
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-1">
-                      {consultation.question}
-                    </p>
-                  </div>
-                  {consultation.feedback && (
-                    <Badge variant={consultation.feedback === "helpful" ? "default" : "secondary"} className="text-[10px]">
-                      {consultation.feedback === "helpful" ? "도움됨" : consultation.feedback === "not_helpful" ? "별로" : "아직"}
-                    </Badge>
+                  </CardHeader>
+
+                  {isExpanded && (
+                    <CardContent className="space-y-3">
+                      <div className="bg-primary/5 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground mb-1">내 고민</p>
+                        <p className="text-sm">{consultation.question}</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">진단</p>
+                          <p className="text-sm">{consultation.card.diagnosis}</p>
+                        </div>
+                        <div className="bg-accent/10 rounded-lg p-3">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">한 수</p>
+                          <p className="text-sm font-semibold">{consultation.card.action}</p>
+                          <Badge variant="secondary" className="mt-1 text-xs">{consultation.card.timing}</Badge>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">피할 것</p>
+                          <p className="text-sm">{consultation.card.avoid}</p>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* 피드백 */}
+                      {!consultation.feedback && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium">그 한 수, 해봤어요?</p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleFeedback(consultation.id, "helpful")
+                              }}
+                            >
+                              <ThumbsUp className="h-3 w-3 mr-1" />
+                              좋았어요
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleFeedback(consultation.id, "not_helpful")
+                              }}
+                            >
+                              <ThumbsDown className="h-3 w-3 mr-1" />
+                              별로였어요
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleFeedback(consultation.id, "not_tried")
+                              }}
+                            >
+                              <Clock className="h-3 w-3 mr-1" />
+                              아직이요
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
                   )}
                 </div>
-              </CardHeader>
-
-              {isExpanded && (
-                <CardContent className="space-y-3">
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground mb-1">내 고민</p>
-                    <p className="text-sm">{consultation.question}</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">진단</p>
-                      <p className="text-sm">{consultation.card.diagnosis}</p>
-                    </div>
-                    <div className="bg-foreground/5 rounded-lg p-3">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">한 수</p>
-                      <p className="text-sm font-semibold">{consultation.card.action}</p>
-                      <Badge variant="secondary" className="mt-1 text-xs">{consultation.card.timing}</Badge>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">피할 것</p>
-                      <p className="text-sm">{consultation.card.avoid}</p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* 피드백 */}
-                  {!consultation.feedback && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium">그 한 수, 해봤어요?</p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFeedback(consultation.id, "helpful")
-                          }}
-                        >
-                          <ThumbsUp className="h-3 w-3 mr-1" />
-                          좋았어요
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFeedback(consultation.id, "not_helpful")
-                          }}
-                        >
-                          <ThumbsDown className="h-3 w-3 mr-1" />
-                          별로였어요
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFeedback(consultation.id, "not_tried")
-                          }}
-                        >
-                          <Clock className="h-3 w-3 mr-1" />
-                          아직이요
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              )}
+              </div>
             </Card>
           )
         })}

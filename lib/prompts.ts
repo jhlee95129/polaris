@@ -19,6 +19,14 @@ export interface CharacterInfo {
   emoji: string
   description: string
   shortDesc: string
+  /** CSS color variable name (e.g. "sibling" → var(--color-sibling)) */
+  colorKey: string
+  /** Tailwind text color class */
+  textColor: string
+  /** Tailwind bg color for light highlights */
+  bgLight: string
+  /** Tailwind border color */
+  borderColor: string
 }
 
 export const CHARACTERS: Record<CharacterType, CharacterInfo> = {
@@ -28,6 +36,10 @@ export const CHARACTERS: Record<CharacterType, CharacterInfo> = {
     emoji: "\uD83E\uDEF2",
     description: "감정/관계 프레임으로 공감하며 조언하는 친한 언니/형",
     shortDesc: "공감형 조언",
+    colorKey: "sibling",
+    textColor: "text-[oklch(0.65_0.15_330)]",
+    bgLight: "bg-[var(--color-sibling-light)]",
+    borderColor: "border-[var(--color-sibling)]",
   },
   grandma: {
     type: "grandma",
@@ -35,6 +47,10 @@ export const CHARACTERS: Record<CharacterType, CharacterInfo> = {
     emoji: "\uD83D\uDC75",
     description: "오행 상생상극을 직접 짚어주는 단호한 할머니 역술가",
     shortDesc: "직설형 풀이",
+    colorKey: "grandma",
+    textColor: "text-[oklch(0.65_0.13_65)]",
+    bgLight: "bg-[var(--color-grandma-light)]",
+    borderColor: "border-[var(--color-grandma)]",
   },
   analyst: {
     type: "analyst",
@@ -42,6 +58,10 @@ export const CHARACTERS: Record<CharacterType, CharacterInfo> = {
     emoji: "\uD83E\uDDE0",
     description: "십신/용신 관계를 논리적으로 분석하는 전문가",
     shortDesc: "논리형 분석",
+    colorKey: "analyst",
+    textColor: "text-[oklch(0.55_0.12_230)]",
+    bgLight: "bg-[var(--color-analyst-light)]",
+    borderColor: "border-[var(--color-analyst)]",
   },
 }
 

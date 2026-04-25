@@ -3,16 +3,22 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { loadProfile, saveConsultation, generateId } from "@/lib/storage"
 import { CHARACTERS, type CharacterType } from "@/lib/prompts"
 import type { CoachingCard } from "@/lib/claude"
-import { Send, RotateCcw } from "lucide-react"
+import { Send, RotateCcw, ChevronDown, ChevronUp, Clock, Zap, CalendarDays, Hourglass } from "lucide-react"
 
 const CHARACTER_LIST: CharacterType[] = ["sibling", "grandma", "analyst"]
+
+const TIMING_ICONS: Record<string, React.ReactNode> = {
+  "오늘 당장": <Zap className="h-3 w-3" />,
+  "내일": <Clock className="h-3 w-3" />,
+  "이번 주 내": <CalendarDays className="h-3 w-3" />,
+  "조금 더 기다려": <Hourglass className="h-3 w-3" />,
+}
 
 export default function AskPage() {
   const router = useRouter()
@@ -22,6 +28,7 @@ export default function AskPage() {
   const [card, setCard] = useState<CoachingCard | null>(null)
   const [error, setError] = useState("")
   const [hasProfile, setHasProfile] = useState(false)
+  const [showBasis, setShowBasis] = useState(false)
 
   useEffect(() => {
     const stored = loadProfile()
@@ -37,6 +44,7 @@ export default function AskPage() {
     setError("")
     setIsLoading(true)
     setCard(null)
+    setShowBasis(false)
 
     try {
       const stored = loadProfile()
@@ -60,7 +68,6 @@ export default function AskPage() {
       const data = await res.json()
       setCard(data.card)
 
-      // 상담 기록 저장
       saveConsultation({
         id: generateId(),
         characterType: character,
@@ -79,9 +86,12 @@ export default function AskPage() {
     setCard(null)
     setQuestion("")
     setError("")
+    setShowBasis(false)
   }
 
   if (!hasProfile) return null
+
+  const charInfo = CHARACTERS[character]
 
   return (
     <div className="p-4 space-y-4">
@@ -102,14 +112,16 @@ export default function AskPage() {
             <button
               key={type}
               onClick={() => setCharacter(type)}
-              className={`flex-1 rounded-lg border p-3 text-center transition-all ${
+              className={`flex-1 rounded-xl border-2 p-3 text-center transition-all ${
                 isSelected
-                  ? "border-foreground bg-foreground/5 shadow-sm"
-                  : "border-border hover:border-foreground/30"
+                  ? `${info.borderColor} ${info.bgLight} shadow-sm`
+                  : "border-border hover:border-primary/20"
               }`}
             >
-              <span className="text-lg block">{info.emoji}</span>
-              <span className="text-xs font-medium block mt-1">{info.name}</span>
+              <span className="text-xl block">{info.emoji}</span>
+              <span className={`text-xs font-medium block mt-1 ${isSelected ? info.textColor : ""}`}>
+                {info.name}
+              </span>
               <span className="text-[10px] text-muted-foreground block">{info.shortDesc}</span>
             </button>
           )
@@ -119,14 +131,16 @@ export default function AskPage() {
       {/* 고민 입력 */}
       {!card && (
         <div className="space-y-3">
-          <Textarea
-            placeholder="예: 이직을 고민하고 있는데, 지금이 적절한 타이밍일까요?"
-            value={question}
-            onChange={e => setQuestion(e.target.value)}
-            rows={4}
-            className="resize-none"
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <Textarea
+              placeholder="예: 이직을 고민하고 있는데, 지금이 적절한 타이밍일까요?"
+              value={question}
+              onChange={e => setQuestion(e.target.value)}
+              rows={4}
+              className="resize-none rounded-2xl rounded-tl-sm pr-4"
+              disabled={isLoading}
+            />
+          </div>
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
@@ -139,7 +153,7 @@ export default function AskPage() {
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                사주를 읽고 있어요...
+                {charInfo.emoji} 사주를 읽고 있어요...
               </span>
             ) : (
               <span className="flex items-center gap-2">
@@ -153,14 +167,16 @@ export default function AskPage() {
 
       {/* 로딩 */}
       {isLoading && (
-        <Card>
+        <Card className={`${charInfo.borderColor} border-2`}>
           <CardContent className="py-8">
-            <div className="space-y-3">
-              <div className="h-4 bg-muted rounded animate-pulse" />
-              <div className="h-4 bg-muted rounded animate-pulse w-5/6" />
-              <div className="h-8 bg-muted rounded animate-pulse mt-4" />
-              <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
-              <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
+            <div className="flex flex-col items-center gap-3">
+              <span className="text-3xl">{charInfo.emoji}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+              <p className="text-xs text-muted-foreground">{charInfo.name}이(가) 사주를 살펴보고 있어요</p>
             </div>
           </CardContent>
         </Card>
@@ -169,53 +185,59 @@ export default function AskPage() {
       {/* 코칭 카드 */}
       {card && !isLoading && (
         <div className="space-y-4">
-          {/* 내 질문 */}
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground mb-1">
-              {CHARACTERS[character].emoji} {CHARACTERS[character].name}에게 물었어요
-            </p>
-            <p className="text-sm">{question}</p>
+          {/* 내 질문 버블 */}
+          <div className="flex justify-end">
+            <div className="bg-primary/10 rounded-2xl rounded-br-sm p-3 max-w-[85%]">
+              <p className="text-sm">{question}</p>
+            </div>
           </div>
 
-          {/* 카드 */}
-          <Card className="border-foreground/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <span>{CHARACTERS[character].emoji}</span>
-                {CHARACTERS[character].name}의 한 수
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          {/* 캐릭터 응답 카드 */}
+          <Card className={`${charInfo.borderColor} border-2 overflow-hidden`}>
+            {/* 캐릭터 헤더 */}
+            <div className={`${charInfo.bgLight} px-4 py-3 flex items-center gap-2`}>
+              <span className="text-lg">{charInfo.emoji}</span>
+              <span className={`text-sm font-semibold ${charInfo.textColor}`}>
+                {charInfo.name}의 한 수
+              </span>
+            </div>
+
+            <CardContent className="space-y-4 pt-4">
               {/* 진단 */}
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">왜 지금 어려운가</p>
+                <p className="text-[11px] font-medium text-muted-foreground mb-1.5">왜 지금 어려운가</p>
                 <p className="text-sm leading-relaxed">{card.diagnosis}</p>
               </div>
 
-              <Separator />
-
-              {/* 핵심 행동 */}
-              <div className="bg-foreground/5 rounded-lg p-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2">오늘의 한 수</p>
+              {/* 핵심 행동 — 골드 강조 */}
+              <div className="bg-accent/10 border border-accent/20 rounded-xl p-4">
+                <p className="text-[11px] font-medium text-accent-foreground/70 mb-2">오늘의 한 수</p>
                 <p className="text-base font-semibold leading-relaxed">{card.action}</p>
-                <Badge variant="secondary" className="mt-2 text-xs">
+                <Badge variant="secondary" className="mt-2 text-xs gap-1">
+                  {TIMING_ICONS[card.timing]}
                   {card.timing}
                 </Badge>
               </div>
 
               {/* 피할 것 */}
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">피할 것</p>
-                <p className="text-sm leading-relaxed">{card.avoid}</p>
+                <p className="text-[11px] font-medium text-muted-foreground mb-1.5">피할 것</p>
+                <p className="text-sm leading-relaxed text-destructive/80">{card.avoid}</p>
               </div>
 
-              <Separator />
-
-              {/* 명리학 근거 */}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">명리학 근거</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{card.basis}</p>
-              </div>
+              {/* 명리학 근거 — 접이식 */}
+              <button
+                onClick={() => setShowBasis(!showBasis)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showBasis ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                명리학 근거 {showBasis ? "접기" : "보기"}
+              </button>
+              {showBasis && (
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground leading-relaxed">{card.basis}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -229,15 +251,12 @@ export default function AskPage() {
               variant="outline"
               className="flex-1"
               onClick={() => {
-                // 다른 캐릭터로 같은 질문
                 const otherCharacters = CHARACTER_LIST.filter(c => c !== character)
                 const next = otherCharacters[Math.floor(Math.random() * otherCharacters.length)]
                 setCharacter(next)
                 setCard(null)
-                // 자동으로 다시 질문
-                setTimeout(() => {
-                  handleSubmit()
-                }, 100)
+                setShowBasis(false)
+                setTimeout(() => handleSubmit(), 100)
               }}
             >
               다른 관점으로 보기
