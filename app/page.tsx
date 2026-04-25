@@ -47,7 +47,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     const existing = loadProfile()
     if (existing) {
-      router.replace("/profile")
+      router.replace("/home")
     }
   }, [router])
 
@@ -100,7 +100,7 @@ export default function OnboardingPage() {
         createdAt: new Date().toISOString(),
       }
       saveProfile(storedProfile)
-      router.push("/profile")
+      router.push("/home")
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다")
       setIsLoading(false)
@@ -116,7 +116,7 @@ export default function OnboardingPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-2">
               <Sparkles className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-primary">한 수</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-primary">한수</h1>
             <p className="text-muted-foreground text-sm">
               AI 사주 라이프 코치
             </p>

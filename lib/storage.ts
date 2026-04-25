@@ -4,7 +4,7 @@
  */
 
 import type { BirthInfo, SajuProfile } from "./saju"
-import type { CoachingCard, ProfileSummary } from "./claude"
+import type { CoachingCard, ProfileSummary, DailyAction } from "./claude"
 import type { CharacterType } from "./prompts"
 
 // ─── 타입 정의 ───
@@ -25,11 +25,17 @@ export interface StoredConsultation {
   createdAt: string
 }
 
+export interface DailyActionCache {
+  date: string
+  action: DailyAction
+}
+
 // ─── 스토리지 키 ───
 
 const KEYS = {
   PROFILE: "hansu_profile",
   CONSULTATIONS: "hansu_consultations",
+  DAILY_ACTION: "hansu_daily_action",
 } as const
 
 // ─── 프로필 관리 ───
@@ -95,6 +101,36 @@ export function updateFeedback(
 export function clearConsultations(): void {
   if (typeof window === "undefined") return
   localStorage.removeItem(KEYS.CONSULTATIONS)
+}
+
+// ─── 오늘의 한수 캐시 ───
+
+function getTodayDateString(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+export function saveDailyAction(action: DailyAction): void {
+  if (typeof window === "undefined") return
+  const cache: DailyActionCache = {
+    date: getTodayDateString(),
+    action,
+  }
+  localStorage.setItem(KEYS.DAILY_ACTION, JSON.stringify(cache))
+}
+
+export function loadDailyAction(): DailyAction | null {
+  if (typeof window === "undefined") return null
+  const data = localStorage.getItem(KEYS.DAILY_ACTION)
+  if (!data) return null
+  try {
+    const cache = JSON.parse(data) as DailyActionCache
+    // 오늘 날짜가 아니면 캐시 무효
+    if (cache.date !== getTodayDateString()) return null
+    return cache.action
+  } catch {
+    return null
+  }
 }
 
 // ─── 유틸리티 ───

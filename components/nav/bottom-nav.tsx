@@ -3,20 +3,20 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { User, MessageCircle, BookOpen } from "lucide-react"
+import { Sparkles, MessageCircle, User } from "lucide-react"
 
 const NAV_ITEMS = [
-  { href: "/profile", label: "내 사주", icon: User },
-  { href: "/ask", label: "한 수", icon: MessageCircle },
-  { href: "/journal", label: "일지", icon: BookOpen },
+  { href: "/home", label: "오늘", icon: Sparkles },
+  { href: "/ask", label: "상담", icon: MessageCircle },
+  { href: "/my", label: "나", icon: User },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-md items-center justify-around px-4">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:hidden">
+      <div className="mx-auto flex h-16 max-w-3xl items-center justify-around px-4">
         {NAV_ITEMS.map(item => {
           const isActive = pathname === item.href
           return (

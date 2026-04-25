@@ -222,12 +222,40 @@ ${generateSajuContext(profile)}
 [오늘 날짜: ${dateStr}]
 
 [필수 규칙]
-- ��드시 generate_profile 도구만 ��출�� 것. 자연어 응답 ��대 금지.
+- 반드시 generate_profile 도구만 호출할 것. 자연어 응답 절대 금지.
 - personality: 일간의 핵심 성격을 한 문장으로 (비유 포함)
 - strength: 사주에서 가장 강한 기운/장점을 한 문장으로
-- weakness: 부족하거나 주의할 점을 ��� 문장으로
+- weakness: 부족하거나 주의할 점을 한 문장으로
 - useful_god_advice: 용신 기반 보충 조언 한 문장
 - today_brief: 오늘의 일진과 이 사람의 관계를 한 줄로 (매일 바뀌는 내용)
 - 모든 필드에 사주 근거를 자연스럽게 녹여낼 것
 - 점쟁이식 표현 금지, 코치/상담사처럼 따뜻하고 구체적으로`
+}
+
+/**
+ * 오늘의 한수 생성용 시스템 프롬프트
+ */
+export function buildDailyActionPrompt(profile: SajuProfile): string {
+  const today = new Date()
+  const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`
+  const dayOfWeek = ["일", "월", "화", "수", "목", "금", "토"][today.getDay()]
+
+  return `${LAYER_0_KNOWLEDGE}
+
+${generateSajuContext(profile)}
+
+[오늘 날짜: ${dateStr} ${dayOfWeek}요일]
+
+[필수 규칙]
+- 반드시 deliver_daily_action 도구만 호출할 것. 자연어 응답 절대 금지.
+- 이 사람의 사주 원국과 오늘의 일진을 분석하여, 오늘 하루 실행할 수 있는 구체적 행동 1가지를 추천하라.
+- action: 오늘 실제로 실행 가능한 구체적 행동. "긍정적으로 생각하세요" 같은 모호한 표현 절대 금지.
+  - GOOD: "오늘 점심에 평소 말 안 하던 동료에게 먼저 커피를 제안해보세요"
+  - GOOD: "퇴근 후 30분 산책하면서 이번 주 목표를 정리해보세요"
+  - BAD: "좋은 기운을 받으세요", "조심하세요"
+- reason: 왜 이 행동인지 사주 근거(오행/십신)를 1-2문장으로 설명
+- element: 오늘 가장 활성화된 오행 에너지 (용신이나 일진 기준)
+- timing: 이 행동을 하기 좋은 시간대
+- keyword: 오늘의 핵심 키워드 2-3개 (쉼표 구분)
+- 점쟁이식 표현 금지. 코치처럼 따뜻하고 구체적으로.`
 }

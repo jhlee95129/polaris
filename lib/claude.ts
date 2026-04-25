@@ -1,6 +1,6 @@
 /**
  * Claude API 클라이언트 + tool_use 정의
- * 코칭 카드 상담과 프로필 생성을 위한 구조화 출력
+ * 코칭 카드 상담, 프로필 생성, 오늘의 한수를 위한 구조화 출력
  */
 
 import Anthropic from "@anthropic-ai/sdk"
@@ -22,7 +22,7 @@ function getClient(): Anthropic {
 
 export const COACHING_TOOL: Anthropic.Tool = {
   name: "deliver_coaching",
-  description: "사용자의 고민에 대해 사주 기반 코칭 카드를 전달합니다. 반드시 이 도구를 ��용하여 응답하세요.",
+  description: "사용자의 고민에 대해 사주 기반 코칭 카드를 전달합니다. 반드시 이 도구를 사용하여 응답하세요.",
   input_schema: {
     type: "object" as const,
     properties: {
@@ -32,7 +32,7 @@ export const COACHING_TOOL: Anthropic.Tool = {
       },
       action: {
         type: "string",
-        description: "구체적 권고 행동 '한 수'. 오늘/내일 실제 실행 가능한 행동 1가지. 1줄.",
+        description: "구체적 권고 행동 '한수'. 오늘/내일 실제 실행 가능한 행동 1가지. 1줄.",
       },
       timing: {
         type: "string",
@@ -83,12 +83,45 @@ export const PROFILE_TOOL: Anthropic.Tool = {
   },
 }
 
-// ─── 코칭 카드 응답 타입 ───
+export const DAILY_ACTION_TOOL: Anthropic.Tool = {
+  name: "deliver_daily_action",
+  description: "오늘의 일진과 사용자 사주를 기반으로 오늘 실행할 구체적 행동을 추천합니다. 반드시 이 도구를 사용하여 응답하세요.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      action: {
+        type: "string",
+        description: "오늘 실행할 구체적 행동 1개. 2-3문장으로 구체적이고 실행 가능하게.",
+      },
+      reason: {
+        type: "string",
+        description: "이 행동을 추천하는 사주 근거. 오행/십신 관계 포함. 1-2문장.",
+      },
+      element: {
+        type: "string",
+        enum: ["목", "화", "토", "금", "수"],
+        description: "오늘의 핵심 오행 에너지",
+      },
+      timing: {
+        type: "string",
+        enum: ["아침", "점심", "저녁", "하루종일"],
+        description: "행동 추천 시간대",
+      },
+      keyword: {
+        type: "string",
+        description: "오늘의 키워드. 2-3단어, 쉼표 구분.",
+      },
+    },
+    required: ["action", "reason", "element", "timing", "keyword"],
+  },
+}
+
+// ─── 응답 타입 ───
 
 export interface CoachingCard {
   diagnosis: string
   action: string
-  timing: "오늘 당장" | "내���" | "이번 주 내" | "조금 더 기다려"
+  timing: "오늘 당장" | "내일" | "이번 주 내" | "조금 더 기다려"
   avoid: string
   basis: string
 }
@@ -99,6 +132,14 @@ export interface ProfileSummary {
   weakness: string
   useful_god_advice: string
   today_brief: string
+}
+
+export interface DailyAction {
+  action: string
+  reason: string
+  element: string
+  timing: string
+  keyword: string
 }
 
 // ─── API 호출 함수 ───
@@ -114,7 +155,7 @@ export async function getCoachingAdvice(
   const anthropic = getClient()
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-7",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 1024,
     system: systemPrompt,
     tools: [COACHING_TOOL],
@@ -127,7 +168,6 @@ export async function getCoachingAdvice(
     ],
   })
 
-  // tool_use 블록에서 코칭 카드 추출
   const toolUse = response.content.find(
     (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
   )
@@ -148,7 +188,7 @@ export async function getProfileSummary(
   const anthropic = getClient()
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-7",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 1024,
     system: systemPrompt,
     tools: [PROFILE_TOOL],
@@ -170,4 +210,37 @@ export async function getProfileSummary(
   }
 
   return toolUse.input as ProfileSummary
+}
+
+/**
+ * 오늘의 한수 생성 API 호출
+ */
+export async function getDailyAction(
+  systemPrompt: string
+): Promise<DailyAction> {
+  const anthropic = getClient()
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 512,
+    system: systemPrompt,
+    tools: [DAILY_ACTION_TOOL],
+    tool_choice: { type: "tool", name: "deliver_daily_action" },
+    messages: [
+      {
+        role: "user",
+        content: "오늘 내가 할 수 있는 구체��인 행동 하나를 추천해주세요.",
+      },
+    ],
+  })
+
+  const toolUse = response.content.find(
+    (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
+  )
+
+  if (!toolUse || toolUse.name !== "deliver_daily_action") {
+    throw new Error("Claude가 오늘의 한수를 생성하지 못했습니다")
+  }
+
+  return toolUse.input as DailyAction
 }
