@@ -17,7 +17,6 @@ import {
   type StoredConsultation,
 } from "@/lib/storage"
 import type { ProfileSummary } from "@/lib/claude"
-import { CHARACTERS } from "@/lib/prompts"
 import { ELEMENTS, type Element } from "@/lib/saju-data"
 import {
   LogOut,
@@ -47,15 +46,53 @@ const ELEMENT_TEXT_COLORS: Record<Element, string> = {
   수: "text-blue-600 dark:text-blue-400",
 }
 
+interface ThreadGroup {
+  threadId: string
+  consultations: StoredConsultation[]
+  firstQuestion: string
+  count: number
+  latestDate: string
+}
+
+function groupByThread(consultations: StoredConsultation[]): ThreadGroup[] {
+  const threads = new Map<string, StoredConsultation[]>()
+
+  for (const c of consultations) {
+    const tid = c.threadId || c.id // 하위 호환: threadId 없으면 id로
+    if (!threads.has(tid)) {
+      threads.set(tid, [])
+    }
+    threads.get(tid)!.push(c)
+  }
+
+  const groups: ThreadGroup[] = []
+  for (const [threadId, items] of threads) {
+    // 시간순 정렬
+    items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    groups.push({
+      threadId,
+      consultations: items,
+      firstQuestion: items[0].question,
+      count: items.length,
+      latestDate: items[items.length - 1].createdAt,
+    })
+  }
+
+  // 최신 thread 우선
+  groups.sort((a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime())
+  return groups
+}
+
 export default function MyPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<StoredProfile | null>(null)
-  const [consultations, setConsultations] = useState<StoredConsultation[]>([])
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [threadGroups, setThreadGroups] = useState<ThreadGroup[]>([])
+  const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null)
   const [showAI, setShowAI] = useState(false)
   const [summary, setSummary] = useState<ProfileSummary | null>(null)
   const [isLoadingSummary, setIsLoadingSummary] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [stats, setStats] = useState<ReturnType<typeof getConsultationStats>>(null)
 
   useEffect(() => {
     const stored = loadProfile()
@@ -65,7 +102,9 @@ export default function MyPage() {
     }
     setProfile(stored)
     if (stored.summary) setSummary(stored.summary)
-    setConsultations(loadConsultations())
+    const consultations = loadConsultations()
+    setThreadGroups(groupByThread(consultations))
+    setStats(getConsultationStats())
   }, [router])
 
   async function loadAISummary() {
@@ -93,7 +132,9 @@ export default function MyPage() {
 
   function handleFeedback(id: string, feedback: "helpful" | "not_helpful" | "not_tried") {
     updateFeedback(id, feedback)
-    setConsultations(loadConsultations())
+    const consultations = loadConsultations()
+    setThreadGroups(groupByThread(consultations))
+    setStats(getConsultationStats())
   }
 
   function handleReset() {
@@ -107,7 +148,6 @@ export default function MyPage() {
   const saju = profile.sajuProfile
   const elements = saju.elementCounts
   const maxElement = Math.max(...Object.values(elements))
-  const stats = getConsultationStats()
 
   return (
     <div className="space-y-4 px-4 pt-6 pb-4">
@@ -139,31 +179,25 @@ export default function MyPage() {
 
       {/* 오늘의 일진 */}
       {saju.todayPillar && (
-        <Card className="border-accent/30 bg-accent/5">
-          <CardContent className="py-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center">
-                <Sun className="h-4 w-4 text-accent" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-accent-foreground/70 mb-1">
-                  오늘의 일진: {saju.todayPillar.pillar} ({saju.todayPillar.pillarHanja})
-                </p>
-                <p className="text-sm leading-relaxed">
-                  {saju.todayInteraction}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4">
+          <Sun className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground/70" />
+          <div>
+            <p className="text-xs font-medium text-accent-foreground/70 mb-0.5">
+              오늘의 일진: {saju.todayPillar.pillar} ({saju.todayPillar.pillarHanja})
+            </p>
+            <p className="text-sm leading-relaxed">{saju.todayInteraction}</p>
+          </div>
+        </div>
       )}
 
-      {/* 사주팔자 4주 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">사주팔자</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* 사주 상세 (접힌 상태) */}
+      <details className="rounded-xl border border-border bg-card">
+        <summary className="flex cursor-pointer items-center justify-between p-4 text-sm font-semibold hover:bg-muted/30">
+          사주 상세
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        </summary>
+        <div className="space-y-5 border-t border-border p-4">
+          {/* 사주팔자 4주 */}
           <div className="grid grid-cols-4 gap-2 text-center">
             {[
               { label: "시주", pillar: saju.hourPillar },
@@ -203,114 +237,106 @@ export default function MyPage() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* 오행 분포 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">오행 분포</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2.5">
-          {(Object.entries(elements) as [Element, number][]).map(([el, count]) => (
-            <div key={el} className="flex items-center gap-3">
-              <span className={`text-sm font-medium w-12 ${ELEMENT_TEXT_COLORS[el]}`}>
-                {ELEMENTS[el].name}
-              </span>
-              <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${ELEMENT_COLORS[el]}`}
-                  style={{ width: maxElement > 0 ? `${(count / maxElement) * 100}%` : "0%" }}
-                />
+          {/* 오행 분포 */}
+          <div className="space-y-2.5">
+            <p className="text-xs font-semibold text-muted-foreground">오행 분포</p>
+            {(Object.entries(elements) as [Element, number][]).map(([el, count]) => (
+              <div key={el} className="flex items-center gap-3">
+                <span className={`text-sm font-medium w-12 ${ELEMENT_TEXT_COLORS[el]}`}>
+                  {ELEMENTS[el].name}
+                </span>
+                <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${ELEMENT_COLORS[el]}`}
+                    style={{ width: maxElement > 0 ? `${(count / maxElement) * 100}%` : "0%" }}
+                  />
+                </div>
+                <span className="text-sm font-mono w-4 text-right">{count}</span>
               </div>
-              <span className="text-sm font-mono w-4 text-right">{count}</span>
-            </div>
-          ))}
-          <p className="text-xs text-muted-foreground pt-1">
-            {saju.usefulGodReason}
-          </p>
-        </CardContent>
-      </Card>
+            ))}
+            <p className="text-xs text-muted-foreground pt-1">
+              {saju.usefulGodReason}
+            </p>
+          </div>
+        </div>
+      </details>
 
       {/* AI 프로필 분석 (접힌 상태) */}
-      <Card className="border-primary/20">
-        <CardHeader className="pb-3">
-          <button
-            onClick={() => {
-              setShowAI(!showAI)
-              if (!showAI && !summary && !isLoadingSummary) loadAISummary()
-            }}
-            className="flex items-center justify-between w-full"
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">AI 프로필 분석</CardTitle>
+      <details
+        className="rounded-xl border border-primary/20 bg-card"
+        onToggle={(e) => {
+          const open = (e.target as HTMLDetailsElement).open
+          setShowAI(open)
+          if (open && !summary && !isLoadingSummary) loadAISummary()
+        }}
+      >
+        <summary className="flex cursor-pointer items-center justify-between p-4 text-sm font-semibold hover:bg-muted/30">
+          <span className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            AI 프로필 분석
+          </span>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showAI ? "rotate-180" : ""}`} />
+        </summary>
+        <div className="border-t border-border p-4">
+          {isLoadingSummary ? (
+            <div className="space-y-2">
+              <div className="h-4 bg-muted rounded animate-pulse" />
+              <div className="h-4 bg-muted rounded animate-pulse w-4/5" />
+              <div className="h-4 bg-muted rounded animate-pulse w-3/5" />
             </div>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showAI ? "rotate-180" : ""}`} />
-          </button>
-        </CardHeader>
-        {showAI && (
-          <CardContent>
-            {isLoadingSummary ? (
-              <div className="space-y-2">
-                <div className="h-4 bg-muted rounded animate-pulse" />
-                <div className="h-4 bg-muted rounded animate-pulse w-4/5" />
-                <div className="h-4 bg-muted rounded animate-pulse w-3/5" />
+          ) : summary ? (
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="font-medium text-xs text-muted-foreground mb-1">성격</p>
+                <p>{summary.personality}</p>
               </div>
-            ) : summary ? (
-              <div className="space-y-3 text-sm">
-                <div>
-                  <p className="font-medium text-xs text-muted-foreground mb-1">성격</p>
-                  <p>{summary.personality}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-xs text-muted-foreground mb-1">강점</p>
-                  <p>{summary.strength}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-xs text-muted-foreground mb-1">주의점</p>
-                  <p>{summary.weakness}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-xs text-muted-foreground mb-1">용신 조언</p>
-                  <p>{summary.useful_god_advice}</p>
-                </div>
-                <Separator />
-                <div>
-                  <p className="font-medium text-xs text-muted-foreground mb-1">오늘 한 줄</p>
-                  <p className="font-medium">{summary.today_brief}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={loadAISummary}
-                  disabled={isLoadingSummary}
-                  className="mt-1"
-                >
-                  <RefreshCw className={`h-3 w-3 mr-1 ${isLoadingSummary ? "animate-spin" : ""}`} />
-                  새로고침
-                </Button>
+              <div>
+                <p className="font-medium text-xs text-muted-foreground mb-1">강점</p>
+                <p>{summary.strength}</p>
               </div>
-            ) : (
-              <div className="text-center py-4">
-                <Sparkles className="h-8 w-8 mx-auto text-primary/30 mb-2" />
-                <p className="text-sm text-muted-foreground mb-3">
-                  AI가 당신의 사주를 깊이 분석합니다.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadAISummary}
-                  disabled={isLoadingSummary}
-                >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  분석 시작하기
-                </Button>
+              <div>
+                <p className="font-medium text-xs text-muted-foreground mb-1">주의점</p>
+                <p>{summary.weakness}</p>
               </div>
-            )}
-          </CardContent>
-        )}
-      </Card>
+              <div>
+                <p className="font-medium text-xs text-muted-foreground mb-1">용신 조언</p>
+                <p>{summary.useful_god_advice}</p>
+              </div>
+              <div className="border-t border-border pt-3">
+                <p className="font-medium text-xs text-muted-foreground mb-1">오늘 한 줄</p>
+                <p className="font-medium">{summary.today_brief}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadAISummary}
+                disabled={isLoadingSummary}
+                className="mt-1"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${isLoadingSummary ? "animate-spin" : ""}`} />
+                새로고침
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <Sparkles className="h-8 w-8 mx-auto text-primary/30 mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                AI가 당신의 사주를 깊이 분석합니다.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadAISummary}
+                disabled={isLoadingSummary}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                분석 시작하기
+              </Button>
+            </div>
+          )}
+        </div>
+      </details>
 
       <Separator />
 
@@ -325,152 +351,147 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* 통계 (3회 이상) */}
-        {stats && (
-          <Card className="bg-primary/5 border-primary/10 mb-3">
-            <CardContent className="py-3">
-              <div className="flex gap-1">
-                {(Object.entries(stats.characterCounts) as [string, number][])
-                  .filter(([, count]) => count > 0)
-                  .map(([type, count]) => {
-                    const charInfo = CHARACTERS[type as keyof typeof CHARACTERS]
-                    return (
-                      <Badge key={type} variant="secondary" className={`text-xs ${charInfo.textColor}`}>
-                        {charInfo.emoji} {count}
-                      </Badge>
-                    )
-                  })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {consultations.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <MessageCircle className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">아직 상담 기록이 없어요.</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => router.push("/ask")}
-              >
-                첫 한수 받으러 가기
-              </Button>
-            </CardContent>
-          </Card>
+        {threadGroups.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border py-10 text-center">
+            <MessageCircle className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+            <p className="text-sm text-muted-foreground mb-3">아직 상담 기록이 없어요.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/ask")}
+            >
+              첫 한수 받으러 가기
+            </Button>
+          </div>
         ) : (
           <div className="space-y-3">
-            {consultations.map(consultation => {
-              const charInfo = CHARACTERS[consultation.characterType]
-              const isExpanded = expandedId === consultation.id
-              const date = new Date(consultation.createdAt)
-              const timeAgo = getTimeAgo(date)
+            {threadGroups.map(group => {
+              const isExpanded = expandedThreadId === group.threadId
+              const latestConsult = group.consultations[group.consultations.length - 1]
+              const timeAgo = getTimeAgo(new Date(group.latestDate))
 
               return (
                 <Card
-                  key={consultation.id}
-                  className={`overflow-hidden transition-all ${isExpanded ? `${charInfo.borderColor} border-2` : ""}`}
+                  key={group.threadId}
+                  className={`overflow-hidden transition-all ${isExpanded ? "border-primary/30 border-2" : ""}`}
                 >
                   <div className="flex">
-                    <div
-                      className={`w-1 flex-shrink-0 ${
-                        consultation.characterType === "sibling"
-                          ? "bg-[var(--color-sibling)]"
-                          : consultation.characterType === "grandma"
-                          ? "bg-[var(--color-grandma)]"
-                          : "bg-[var(--color-analyst)]"
-                      }`}
-                    />
+                    <div className="w-1 flex-shrink-0 bg-primary/40" />
                     <div className="flex-1">
-                      <CardHeader className="pb-2 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : consultation.id)}>
+                      <CardHeader className="pb-2 cursor-pointer" onClick={() => setExpandedThreadId(isExpanded ? null : group.threadId)}>
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm">{charInfo.emoji}</span>
-                              <CardTitle className="text-sm">{charInfo.name}</CardTitle>
-                              <span className="text-xs text-muted-foreground">{timeAgo}</span>
+                              <MessageCircle className="h-4 w-4 text-primary/50" />
+                              <CardTitle className="text-sm">{group.firstQuestion}</CardTitle>
                             </div>
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {consultation.question}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{timeAgo}</span>
+                              {group.count > 1 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {group.count}회 코칭
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          {consultation.feedback && (
-                            <Badge variant={consultation.feedback === "helpful" ? "default" : "secondary"} className="text-xs">
-                              {consultation.feedback === "helpful" ? "도움됨" : consultation.feedback === "not_helpful" ? "별로" : "아직"}
+                          {latestConsult.feedback && (
+                            <Badge variant={latestConsult.feedback === "helpful" ? "default" : "secondary"} className="text-xs">
+                              {latestConsult.feedback === "helpful" ? "도움됨" : latestConsult.feedback === "not_helpful" ? "별로" : "아직"}
                             </Badge>
                           )}
                         </div>
                       </CardHeader>
 
                       {isExpanded && (
-                        <CardContent className="space-y-3">
-                          <div className="bg-primary/5 rounded-lg p-3">
-                            <p className="text-xs text-muted-foreground mb-1">내 고민</p>
-                            <p className="text-sm">{consultation.question}</p>
-                          </div>
+                        <CardContent className="space-y-4">
+                          {group.consultations.map((consultation, idx) => (
+                            <div key={consultation.id} className="space-y-2">
+                              {idx > 0 && <Separator />}
+                              {idx > 0 && (
+                                <p className="text-xs text-primary font-medium pt-1">
+                                  {idx + 1}회차 코칭
+                                </p>
+                              )}
 
-                          <div className="space-y-2">
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground mb-1">진단</p>
-                              <p className="text-sm">{consultation.card.diagnosis}</p>
-                            </div>
-                            <div className="bg-accent/10 rounded-lg p-3">
-                              <p className="text-xs font-medium text-muted-foreground mb-1">한수</p>
-                              <p className="text-sm font-semibold">{consultation.card.action}</p>
-                              <Badge variant="secondary" className="mt-1 text-xs">{consultation.card.timing}</Badge>
-                            </div>
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground mb-1">피할 것</p>
-                              <p className="text-sm">{consultation.card.avoid}</p>
-                            </div>
-                          </div>
+                              {consultation.followUpNote && (
+                                <div className="bg-muted/50 rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1">실행 보고</p>
+                                  <p className="text-sm">{consultation.followUpNote}</p>
+                                </div>
+                              )}
 
-                          <Separator />
-
-                          {!consultation.feedback && (
-                            <div className="space-y-2">
-                              <p className="text-xs font-medium">그 한수, 해봤어요?</p>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleFeedback(consultation.id, "helpful")
-                                  }}
-                                >
-                                  <ThumbsUp className="h-3 w-3 mr-1" />
-                                  좋았어요
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleFeedback(consultation.id, "not_helpful")
-                                  }}
-                                >
-                                  <ThumbsDown className="h-3 w-3 mr-1" />
-                                  별로였어요
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleFeedback(consultation.id, "not_tried")
-                                  }}
-                                >
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  아직이요
-                                </Button>
+                              <div className="bg-primary/5 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-1">
+                                  {idx === 0 ? "내 고민" : "질문"}
+                                </p>
+                                <p className="text-sm">{consultation.question}</p>
                               </div>
+
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">진단</p>
+                                  <p className="text-sm">{consultation.card.diagnosis}</p>
+                                </div>
+                                <div className="bg-accent/10 rounded-lg p-3">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">한수</p>
+                                  <p className="text-sm font-semibold">{consultation.card.action}</p>
+                                  <Badge variant="secondary" className="mt-1 text-xs">{consultation.card.timing}</Badge>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">피할 것</p>
+                                  <p className="text-sm">{consultation.card.avoid}</p>
+                                </div>
+                              </div>
+
+                              {/* 마지막 카드에만 피드백 표시 */}
+                              {idx === group.consultations.length - 1 && !consultation.feedback && (
+                                <>
+                                  <Separator />
+                                  <div className="space-y-2">
+                                    <p className="text-xs font-medium">그 한수, 해봤어요?</p>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 text-xs"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleFeedback(consultation.id, "helpful")
+                                        }}
+                                      >
+                                        <ThumbsUp className="h-3 w-3 mr-1" />
+                                        좋았어요
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 text-xs"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleFeedback(consultation.id, "not_helpful")
+                                        }}
+                                      >
+                                        <ThumbsDown className="h-3 w-3 mr-1" />
+                                        별로였어요
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 text-xs"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleFeedback(consultation.id, "not_tried")
+                                        }}
+                                      >
+                                        <Clock className="h-3 w-3 mr-1" />
+                                        아직이요
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
-                          )}
+                          ))}
                         </CardContent>
                       )}
                     </div>
@@ -482,24 +503,20 @@ export default function MyPage() {
         )}
       </div>
 
-      <Separator />
-
       {/* 프로필 초기화 */}
       {showResetConfirm ? (
-        <Card className="border-destructive/30">
-          <CardContent className="py-4 text-center space-y-3">
-            <p className="text-sm font-medium">정말 초기화하시겠어요?</p>
-            <p className="text-xs text-muted-foreground">모든 프로필과 상담 기록이 삭제됩니다.</p>
-            <div className="flex gap-2 justify-center">
-              <Button variant="destructive" size="sm" onClick={handleReset}>
-                초기화
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowResetConfirm(false)}>
-                취소
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border border-destructive/30 p-4 text-center space-y-3">
+          <p className="text-sm font-medium">정말 초기화하시겠어요?</p>
+          <p className="text-xs text-muted-foreground">모든 프로필과 상담 기록이 삭제됩니다.</p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="destructive" size="sm" onClick={handleReset}>
+              초기화
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowResetConfirm(false)}>
+              취소
+            </Button>
+          </div>
+        </div>
       ) : (
         <Button
           variant="ghost"

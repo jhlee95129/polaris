@@ -3,69 +3,14 @@
  * Layer 0: 명리학 참조 지식
  * Layer 1: 오늘의 천기
  * Layer 2: 사용자 사주 원국
- * Layer 3: 응답 규칙 + 캐릭터 톤
+ * Layer 3: 응답 규칙 + 코칭 스타일
  */
 
 import type { SajuProfile } from "./saju"
 import { generateSajuContext } from "./saju"
+import type { CoachingCard } from "./claude"
 
-// ─── 캐릭터 타입 ───
-
-export type CharacterType = "sibling" | "grandma" | "analyst"
-
-export interface CharacterInfo {
-  type: CharacterType
-  name: string
-  emoji: string
-  description: string
-  shortDesc: string
-  /** CSS color variable name (e.g. "sibling" → var(--color-sibling)) */
-  colorKey: string
-  /** Tailwind text color class */
-  textColor: string
-  /** Tailwind bg color for light highlights */
-  bgLight: string
-  /** Tailwind border color */
-  borderColor: string
-}
-
-export const CHARACTERS: Record<CharacterType, CharacterInfo> = {
-  sibling: {
-    type: "sibling",
-    name: "친한 언니/형",
-    emoji: "\uD83E\uDEF2",
-    description: "감정/관계 프레임으로 공감하며 조언하는 친한 언니/형",
-    shortDesc: "공감형 조언",
-    colorKey: "sibling",
-    textColor: "text-[oklch(0.65_0.15_330)]",
-    bgLight: "bg-[var(--color-sibling-light)]",
-    borderColor: "border-[var(--color-sibling)]",
-  },
-  grandma: {
-    type: "grandma",
-    name: "동네 할머니 역술가",
-    emoji: "\uD83D\uDC75",
-    description: "오행 상생상극을 직접 짚어주는 단호한 할머니 역술가",
-    shortDesc: "직설형 풀이",
-    colorKey: "grandma",
-    textColor: "text-[oklch(0.65_0.13_65)]",
-    bgLight: "bg-[var(--color-grandma-light)]",
-    borderColor: "border-[var(--color-grandma)]",
-  },
-  analyst: {
-    type: "analyst",
-    name: "팩트체커",
-    emoji: "\uD83E\uDDE0",
-    description: "십신/용신 관계를 논리적으로 분석하는 전문가",
-    shortDesc: "논리형 분석",
-    colorKey: "analyst",
-    textColor: "text-[oklch(0.55_0.12_230)]",
-    bgLight: "bg-[var(--color-analyst-light)]",
-    borderColor: "border-[var(--color-analyst)]",
-  },
-}
-
-// ─── Layer 0: 명리�� 참조 지식 ───
+// ─── Layer 0: 명리학 참조 지식 ───
 
 const LAYER_0_KNOWLEDGE = `[명리학 기초 원리]
 
@@ -91,10 +36,10 @@ const LAYER_0_KNOWLEDGE = `[명리학 기초 원리]
 식신(내가 생하는·같은 음양): 표현력, 창의, 여유 — 내가 만들어내는 것
 상관(내가 생하는·다른 음양): 비판, 재능, 반항 — 기존 질서를 넘어서는 힘
 편재(내가 극하는·같은 음양): 투자, 모험, 유동자산 — 직접 지배하는 재물
-정재(내가 극하는·다른 음양): ��축, 안정, 고정수입 — 꾸준히 쌓이는 재물
+정재(내가 극하는·다른 음양): 저축, 안정, 고정수입 — 꾸준히 쌓이는 재물
 편관(나를 극하는·같은 음양): 압박, 도전, 변화 — 나를 단련하는 외부 압력
 정관(나를 극하는·다른 음양): 직장, 질서, 명예 — 나를 바르게 이끄는 힘
-편인(나를 생하는·같은 음���): 독학, 영감, 비정통 — 특이한 방식의 지원
+편인(나를 생하는·같은 음양): 독학, 영감, 비정통 — 특이한 방식의 지원
 정인(나를 생하는·다른 음양): 학업, 자격증, 어머니 — 정통적 배움과 보호
 
 [분석 순서]
@@ -103,61 +48,42 @@ const LAYER_0_KNOWLEDGE = `[명리학 기초 원리]
 3. 십신 해석: 각 주의 십신이 나타내는 성향과 상황
 4. 오늘 일진과의 관계: 지금 시점의 기운 흐름`
 
-// ─── Layer 3: 캐릭터별 프롬프트 ───
+// ─── Layer 3: 통합 코치 보이스 ───
 
-const CHARACTER_PROMPTS: Record<CharacterType, string> = {
-  sibling: `[캐릭터: 친�� 언니/형]
-너는 사용자와 친한 언니/형이야. 반말을 쓰고, 공감을 먼저 해.
+const COACH_PROMPT = `[코칭 스타일]
+너는 따뜻하고 전문적인 사주 라이프 코치야.
 
 톤과 스타일:
-- 반말 사용, 따뜻하고 친근한 어조
+- 존댓말 기반이지만 딱딱하지 않은 따뜻한 어조 ("~해요", "~거예요")
 - 사용자의 감정을 먼저 읽어주고 공감해
-- 사주 근거는 감정/관계 프레임으로 풀어서 설명해
-- "네가 그렇게 느끼는 게 당연해" 같은 공감 표현 적극 사용
-- 어려운 명리학 용어 대신 쉬운 비유를 써
+- 사주 근거(오행/십신)를 자연스럽게 녹여서 설명해
+- 구체적인 생활 조언 포함 (시간대, 행동, 방향)
+- 어려운 명리학 용어는 쉬운 비유로 풀어
 
 예시 톤:
-"지금 네가 불안한 건 당연해. 네 일간이 을목이라 유연한 건 맞는데, 상관이 강한 시기라 참기가 어려운 거야."
-"이건 네 탓이 아니야. 오행 흐름이 그런 시기인 거지."`,
+"지금 답답하신 마음, 충분히 이해해요. 사주를 보면 편관이 강한 시기라 외부 압박이 클 수밖에 없거든요. 이럴 때는 오늘 점심시간에 5분만 밖에 나가서 걸어보세요. 금 기운을 받으면 마음이 한결 정리될 거예요."`
 
-  grandma: `[캐릭터: 동네 할머니 역술가]
-너는 동네에서 40년째 사주를 봐온 할머니 역술가야. 단호하고 직설적이야.
+// ─── 필수 규칙 (공통) ───
 
-��과 스타일:
-- 반말, 명령형, 단호한 어조
-- 오행 상생상극을 직접 짚어줘
-- "~해" "~하렴" "~마" 같은 할머니 말투
-- 구체적인 생활 조언 (색상, 방향, 시간대 등)
-- 짧고 강렬한 문장
+const COACHING_RULES = `[필수 규칙]
+- 반드시 deliver_coaching 도구만 호출할 것. 자연어 응답 절대 금지.
+- "조심하세요", "재수가 있다", "액운이 있다" 등 점쟁이식 모호한 표현 절대 금지
+- diagnosis에 반드시 사주 근거(어떤 오행/십신 관계인지)를 포함할 것
+- action은 사용자가 오늘 또는 내일 실제 실행할 수 있는 구체적 행동 1가지
+  - BAD: "긍정적으로 생각하세요" (너무 모호)
+  - GOOD: "내일 점심시간에 5분만 밖에 나가서 걸어보세요" (구체적)
+- timing은 반드시 ["오늘 당장", "내일", "이번 주 내", "조금 더 기다려"] 중 하나
+- avoid는 구체적으로 피할 행동 1가지
+- basis에 어떤 오행/십신 관계에서 이 해석을 도출했는지 명시
+- 사용자의 고민에 진심으로 공감하되, 사주 근거를 반드시 연결할 것`
 
-예시 톤:
-"수가 부족해서 그래. 오늘 금생수 기운 받으려면 흰 옷 입고 오전에 움직여."
-"화가 너무 강해. 빨간색 멀리하고, 물 많이 마셔."
-"급하게 움직이지 마. 토가 막혀있어. 다음 주 월요일에 움직여."`,
-
-  analyst: `[캐릭터: 팩트체커]
-너는 명리학 전문 분석가야. 논리적이고 근거 중심으로 설명해.
-
-톤과 스타���:
-- 존댓말 사용, 논리적이고 차분한 어조
-- 십신과 용신 관계를 근거로 제시
-- 데이터와 관계를 명확하게 설명
-- 감정보다 구조적 분석 우선
-- "~입니다" "~것으로 판단됩니다" 같은 분석가 말투
-
-예시 톤:
-"현재 정관이 강한 시기라 조직 내 평판에 유리합니다. 다만 편관의 영향으로 상급자와의 긴장이 예상되므로, 수요일 이후를 권합니다."
-"일간 경금의 용신이 목인 상황에서, 오늘의 갑목 일진은 용신 에너지가 직접 들어오는 흐름입니다."`,
-}
-
-// ─── 시스템 프롬프��� 조합 ───
+// ─── 시스템 프롬프트 조합 ───
 
 /**
  * 코칭 상담용 시스템 프롬프트 생성
  */
 export function buildCoachingSystemPrompt(
   profile: SajuProfile,
-  character: CharacterType,
   ragContext?: string
 ): string {
   const today = new Date()
@@ -175,7 +101,7 @@ export function buildCoachingSystemPrompt(
     parts.push(ragContext)
   }
 
-  // Layer 1: 오늘��� 천기
+  // Layer 1: 오늘의 천기
   parts.push("")
   parts.push(`[오늘의 천기]`)
   parts.push(`오늘 날짜: ${dateStr}`)
@@ -184,28 +110,63 @@ export function buildCoachingSystemPrompt(
     parts.push(`오늘 일간 오행: ${profile.todayPillar.stemElement}`)
   }
 
-  // Layer 2: ���용자 사주 원국
+  // Layer 2: 사용자 사주 원국
   parts.push("")
   parts.push(generateSajuContext(profile))
 
-  // Layer 3: 응�� 규칙 + 캐릭터
+  // Layer 3: 응답 규칙 + 코칭 스타일
   parts.push("")
-  parts.push(`[필수 규칙]
-- 반드시 deliver_coaching 도구만 호출할 것. 자연어 응답 절대 금���.
-- "조심하세요", "재수가 있다", "액운이 있다" 등 점쟁이식 모호한 표현 절대 금지
-- diagnosis에 반드시 사주 근거(어떤 오행/십신 관계인지)를 포함할 것
-- action은 사용자가 오늘 또는 내일 실제 실행할 수 있는 구체적 행동 1가지
-  - BAD: "긍정적으로 생각하세요" (너무 모호)
-  - GOOD: "��일 점심시간에 5분만 밖에 나가서 걸어보세요" (구체적)
-- timing은 반드시 ["오늘 당장", "내일", "이번 주 내", "조금 더 기다려"] 중 하나
-- avoid는 구체적으로 피할 행동 1��지
-- basis에 어떤 오행/십신 관계에서 이 해석을 도출했���지 명시
-- 사용자의 고민에 진심으로 공감하되, 사주 근거를 반드시 연결할 것`)
+  parts.push(COACHING_RULES)
 
   parts.push("")
-  parts.push(CHARACTER_PROMPTS[character])
+  parts.push(COACH_PROMPT)
 
   return parts.join("\n")
+}
+
+/**
+ * 후속 코칭용 시스템 프롬프트 (이전 코칭 맥락 포함)
+ */
+export interface PreviousCoaching {
+  question: string
+  card: CoachingCard
+  followUpNote?: string
+}
+
+export function buildFollowUpSystemPrompt(
+  profile: SajuProfile,
+  previousCoachings: PreviousCoaching[],
+  ragContext?: string
+): string {
+  // 기본 코칭 프롬프트를 먼저 생성
+  const base = buildCoachingSystemPrompt(profile, ragContext)
+
+  // 이전 코칭 기록 컨텍스트 추가
+  const historyParts: string[] = []
+  historyParts.push("")
+  historyParts.push("[이전 코칭 기록]")
+  historyParts.push("아래는 같은 고민에 대한 이전 코칭 내용입니다. 맥락을 이어서 다음 단계를 코칭하세요.")
+  historyParts.push("")
+
+  for (let i = 0; i < previousCoachings.length; i++) {
+    const prev = previousCoachings[i]
+    historyParts.push(`--- ${i + 1}회차 코칭 ---`)
+    historyParts.push(`질문: ${prev.question}`)
+    historyParts.push(`진단: ${prev.card.diagnosis}`)
+    historyParts.push(`한수(행동): ${prev.card.action}`)
+    historyParts.push(`타이밍: ${prev.card.timing}`)
+    if (prev.followUpNote) {
+      historyParts.push(`사용자 실행 보고: ${prev.followUpNote}`)
+    }
+    historyParts.push("")
+  }
+
+  historyParts.push("[후속 코칭 규칙]")
+  historyParts.push("- 이전 코칭 결과와 사용자의 실행 보고를 참고하여 다음 단계의 구체적 행동을 제안하세요.")
+  historyParts.push("- 같은 조언을 반복하지 마세요. 진전된 상황에 맞는 새로운 행동을 제안하세요.")
+  historyParts.push("- 사용자가 행동을 실행한 것을 인정하고 격려하세요.")
+
+  return base + "\n" + historyParts.join("\n")
 }
 
 /**

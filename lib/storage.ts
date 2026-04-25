@@ -5,7 +5,6 @@
 
 import type { BirthInfo, SajuProfile } from "./saju"
 import type { CoachingCard, ProfileSummary, DailyAction } from "./claude"
-import type { CharacterType } from "./prompts"
 
 // ─── 타입 정의 ───
 
@@ -18,10 +17,12 @@ export interface StoredProfile {
 
 export interface StoredConsultation {
   id: string
-  characterType: CharacterType
+  threadId: string
   question: string
   card: CoachingCard
+  followUpNote?: string
   feedback?: "helpful" | "not_helpful" | "not_tried"
+  characterType?: string  // 하위 호환
   createdAt: string
 }
 
@@ -32,10 +33,19 @@ export interface DailyActionCache {
 
 // ─── 스토리지 키 ───
 
+export interface EnergyState {
+  balance: number
+  lastRechargeDate: string
+}
+
+const DAILY_FREE_ENERGY = 3
+const MAX_ENERGY = 99
+
 const KEYS = {
   PROFILE: "hansu_profile",
   CONSULTATIONS: "hansu_consultations",
   DAILY_ACTION: "hansu_daily_action",
+  ENERGY: "hansu_energy",
 } as const
 
 // ─── 프로필 관리 ───
@@ -156,17 +166,10 @@ export function getPendingFeedback(): StoredConsultation | null {
  */
 export function getConsultationStats(): {
   totalCount: number
-  characterCounts: Record<CharacterType, number>
   feedbackCounts: { helpful: number; not_helpful: number; not_tried: number; pending: number }
 } | null {
   const consultations = loadConsultations()
   if (consultations.length < 3) return null
-
-  const characterCounts: Record<CharacterType, number> = {
-    sibling: 0,
-    grandma: 0,
-    analyst: 0,
-  }
 
   const feedbackCounts = {
     helpful: 0,
@@ -176,7 +179,6 @@ export function getConsultationStats(): {
   }
 
   for (const c of consultations) {
-    characterCounts[c.characterType]++
     if (c.feedback) {
       feedbackCounts[c.feedback]++
     } else {
@@ -186,7 +188,71 @@ export function getConsultationStats(): {
 
   return {
     totalCount: consultations.length,
-    characterCounts,
     feedbackCounts,
   }
+}
+
+// ─── Thread 관리 ───
+
+export function generateThreadId(): string {
+  return `thread-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+export function getThread(threadId: string): StoredConsultation[] {
+  const all = loadConsultations()
+  return all.filter(c => c.threadId === threadId).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
+}
+
+// ─── 기운(에너지) 시스템 ───
+
+export function loadEnergy(): EnergyState {
+  if (typeof window === "undefined") return { balance: DAILY_FREE_ENERGY, lastRechargeDate: getTodayDateString() }
+
+  const data = localStorage.getItem(KEYS.ENERGY)
+  let state: EnergyState
+
+  if (!data) {
+    // 첫 사용: 무료 기운 지급
+    state = { balance: DAILY_FREE_ENERGY, lastRechargeDate: getTodayDateString() }
+    localStorage.setItem(KEYS.ENERGY, JSON.stringify(state))
+    return state
+  }
+
+  try {
+    state = JSON.parse(data) as EnergyState
+  } catch {
+    state = { balance: DAILY_FREE_ENERGY, lastRechargeDate: getTodayDateString() }
+  }
+
+  // 일일 충전 체크
+  const today = getTodayDateString()
+  if (state.lastRechargeDate !== today) {
+    state.balance = Math.min(state.balance + DAILY_FREE_ENERGY, MAX_ENERGY)
+    state.lastRechargeDate = today
+    localStorage.setItem(KEYS.ENERGY, JSON.stringify(state))
+  }
+
+  return state
+}
+
+export function useEnergy(): boolean {
+  if (typeof window === "undefined") return false
+  const state = loadEnergy()
+  if (state.balance <= 0) return false
+  state.balance--
+  localStorage.setItem(KEYS.ENERGY, JSON.stringify(state))
+  return true
+}
+
+export function addEnergy(amount: number): void {
+  if (typeof window === "undefined") return
+  const state = loadEnergy()
+  state.balance = Math.min(state.balance + amount, MAX_ENERGY)
+  localStorage.setItem(KEYS.ENERGY, JSON.stringify(state))
+}
+
+export function getEnergyBalance(): number {
+  return loadEnergy().balance
 }

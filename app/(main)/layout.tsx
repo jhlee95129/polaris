@@ -10,7 +10,7 @@ export default function MainLayout({
   return (
     <div className="flex min-h-svh flex-col">
       <Header />
-      <main className="mx-auto w-full max-w-3xl flex-1 pb-20 sm:pb-8">
+      <main className="mx-auto w-full max-w-[724px] flex-1 pb-20 sm:pb-8">
         {children}
       </main>
       <Footer />
