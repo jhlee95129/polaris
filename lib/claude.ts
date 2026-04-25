@@ -114,7 +114,7 @@ export async function getCoachingAdvice(
   const anthropic = getClient()
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-20250514",
+    model: "claude-opus-4-7",
     max_tokens: 1024,
     system: systemPrompt,
     tools: [COACHING_TOOL],
@@ -148,7 +148,7 @@ export async function getProfileSummary(
   const anthropic = getClient()
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-20250514",
+    model: "claude-opus-4-7",
     max_tokens: 1024,
     system: systemPrompt,
     tools: [PROFILE_TOOL],
