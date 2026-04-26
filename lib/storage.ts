@@ -18,6 +18,7 @@ export function clearUser(): void {
   if (typeof window === "undefined") return
   localStorage.removeItem(POLARIS_USER_KEY)
   localStorage.removeItem(POLARIS_ENERGY_KEY)
+  sessionStorage.removeItem(CURRENT_SESSION_KEY)
 }
 
 // ─── 복채 시스템 ───
@@ -60,3 +61,38 @@ export function useEnergy(): boolean {
 }
 
 export { MAX_ENERGY }
+
+// ─── 세션 관리 ───
+
+const CURRENT_SESSION_KEY = "polaris_current_session_id"
+
+export function getCurrentSessionId(): string | null {
+  if (typeof window === "undefined") return null
+  return sessionStorage.getItem(CURRENT_SESSION_KEY)
+}
+
+export function setCurrentSessionId(id: string): void {
+  if (typeof window === "undefined") return
+  sessionStorage.setItem(CURRENT_SESSION_KEY, id)
+}
+
+export function clearCurrentSession(): void {
+  if (typeof window === "undefined") return
+  sessionStorage.removeItem(CURRENT_SESSION_KEY)
+}
+
+// ─── 주제 카드 → 채팅 연결 ───
+
+const PENDING_TOPIC_KEY = "polaris_pending_topic"
+
+export function setPendingTopic(message: string): void {
+  if (typeof window === "undefined") return
+  sessionStorage.setItem(PENDING_TOPIC_KEY, message)
+}
+
+export function getPendingTopic(): string | null {
+  if (typeof window === "undefined") return null
+  const topic = sessionStorage.getItem(PENDING_TOPIC_KEY)
+  if (topic) sessionStorage.removeItem(PENDING_TOPIC_KEY)
+  return topic
+}

@@ -1,22 +1,21 @@
 import { NextRequest } from "next/server"
 import { streamChat } from "@/lib/claude"
 import { buildSystemPrompt, buildUserContextBlock } from "@/lib/prompts"
-import { getUser, getRecentMessages, saveMessage } from "@/lib/db/queries"
+import { getUser, getSessionMessages, getRecentMessages, saveMessage, updateSessionTitle } from "@/lib/db/queries"
 import { searchSajuKnowledge } from "@/lib/rag"
-
-const SESSION_GAP_MS = 4 * 60 * 60 * 1000 // 4시간
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { user_id, message, greeting } = body as {
+    const { user_id, session_id, message, greeting } = body as {
       user_id: string
+      session_id: string
       message?: string
       greeting?: boolean
     }
 
-    if (!user_id) {
-      return new Response(JSON.stringify({ error: "user_id 필수" }), {
+    if (!user_id || !session_id) {
+      return new Response(JSON.stringify({ error: "user_id, session_id 필수" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       })
@@ -31,8 +30,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 최근 메시지 + RAG 검색 (사용자 메시지 기반 컨텍스트 검색)
-    const recentMessages = await getRecentMessages(user_id, 20)
+    // 세션 메시지 + RAG 검색
+    const sessionMessages = await getSessionMessages(session_id, 20)
     const ilganChunk = await searchSajuKnowledge(user.ilgan, message)
 
     // 시스템 프롬프트 조립
@@ -45,36 +44,37 @@ export async function POST(request: NextRequest) {
     const claudeMessages: Array<{ role: "user" | "assistant"; content: string }> = []
 
     if (greeting && !message) {
-      // 인사 생성 모드
-      const isReturning = recentMessages.length > 0
-      const lastMsg = recentMessages[recentMessages.length - 1]
-      const isNewSession = !lastMsg ||
-        (Date.now() - new Date(lastMsg.created_at).getTime()) > SESSION_GAP_MS
-
-      if (isReturning && isNewSession) {
-        // 재방문 — 이전 대화 맥락 포함
-        for (const msg of recentMessages.slice(-10)) {
-          claudeMessages.push({ role: msg.role, content: msg.content })
-        }
-        claudeMessages.push({
-          role: "user",
-          content: `[시스템] 사용자가 다시 돌아왔습니다. 이전 대화 내용을 자연스럽게 언급하면서 반갑게 맞아주세요. 이전 대화에서 다뤘던 주요 고민이나 상황을 부드럽게 되물어주세요.`,
-        })
-      } else if (!isReturning) {
-        // 첫 방문
-        claudeMessages.push({
-          role: "user",
-          content: `[시스템] 사용자가 처음 채팅에 진입했습니다. ${user.display_name ? `"${user.display_name}"` : "사용자"}의 이름을 부르며 명식 한 줄 언급하고 가벼운 첫 질문을 해주세요. 자기소개는 하지 마세요.`,
-        })
-      } else {
-        // 같은 세션 내 — 인사 불필요, 빈 응답
+      // 인사 생성 모드: 세션에 메시지가 없으면 인사 필요
+      const isNewSession = sessionMessages.length === 0
+      if (!isNewSession) {
         return new Response(JSON.stringify({ skip: true }), {
           headers: { "Content-Type": "application/json" },
         })
       }
+
+      // 다른 세션에 이전 대화가 있는지 확인
+      const crossSessionMessages = await getRecentMessages(user_id, 10)
+      const isReturning = crossSessionMessages.length > 0
+
+      if (isReturning) {
+        // 재방문 — 이전 대화 맥락 포함
+        for (const msg of crossSessionMessages.slice(-10)) {
+          claudeMessages.push({ role: msg.role, content: msg.content })
+        }
+        claudeMessages.push({
+          role: "user",
+          content: `[시스템] 사용자가 새 대화를 시작했습니다. 이전 대화 내용을 자연스럽게 언급하면서 반갑게 맞아주세요. 이전 대화에서 다뤘던 주요 고민이나 상황을 부드럽게 되물어주세요.`,
+        })
+      } else {
+        // 완전 첫 방문
+        claudeMessages.push({
+          role: "user",
+          content: `[시스템] 사용자가 처음 채팅에 진입했습니다. ${user.display_name ? `"${user.display_name}"` : "사용자"}의 이름을 부르며 명식 한 줄 언급하고 가벼운 첫 질문을 해주세요. 자기소개는 하지 마세요.`,
+        })
+      }
     } else if (message) {
-      // 일반 채팅 — 히스토리 + 새 메시지
-      for (const msg of recentMessages) {
+      // 일반 채팅 — 세션 히스토리 + 새 메시지
+      for (const msg of sessionMessages) {
         claudeMessages.push({ role: msg.role, content: msg.content })
       }
       claudeMessages.push({ role: "user", content: message })
@@ -155,10 +155,15 @@ export async function POST(request: NextRequest) {
         try {
           const { cleanText, sajuBasis } = parseSajuBasis(fullResponse)
           if (message) {
-            await saveMessage(user_id, "user", message)
+            await saveMessage(user_id, session_id, "user", message)
+            // 첫 유저 메시지 → 세션 제목 자동 설정
+            if (sessionMessages.length === 0) {
+              const title = message.length > 30 ? message.slice(0, 30) + "..." : message
+              await updateSessionTitle(session_id, title)
+            }
           }
           if (cleanText) {
-            await saveMessage(user_id, "assistant", cleanText, {
+            await saveMessage(user_id, session_id, "assistant", cleanText, {
               basis: {
                 ilgan: user.ilgan,
                 ilganChunk: ilganChunk || null,

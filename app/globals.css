@@ -97,7 +97,7 @@
     --secondary-foreground: oklch(0.92 0.01 75);
     --muted: oklch(0.24 0.02 280);
     --muted-foreground: oklch(0.62 0.03 75);
-    --accent: oklch(0.70 0.10 75);
+    --accent: oklch(0.72 0.13 70);
     --accent-foreground: oklch(0.14 0.025 280);
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 12%);
@@ -129,4 +129,66 @@
   html {
     font-family: "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     }
+}
+
+/* ── 사주 서비스 비주얼 유틸리티 ── */
+
+.text-gold-gradient {
+  background: linear-gradient(135deg, oklch(0.78 0.12 75), oklch(0.65 0.14 60));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dark .text-gold-gradient {
+  background: linear-gradient(135deg, oklch(0.82 0.13 70), oklch(0.68 0.14 60));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.saju-card-border {
+  border: 1px solid oklch(0.75 0.12 75 / 0.3);
+  box-shadow: 0 0 0 1px oklch(0.75 0.12 75 / 0.05),
+              0 4px 24px oklch(0.75 0.12 75 / 0.08);
+}
+
+.dark .saju-card-border {
+  border: 1px solid oklch(0.72 0.13 70 / 0.4);
+  box-shadow: 0 0 0 1px oklch(0.72 0.13 70 / 0.08),
+              0 4px 24px oklch(0.72 0.13 70 / 0.12);
+}
+
+.star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.40 0.12 280 / 0.08) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.40 0.12 280 / 0.04) 1px, transparent 1px);
+  background-size: 40px 40px, 80px 80px;
+  background-position: 0 0, 20px 20px;
+}
+
+.dark .star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.72 0.13 70 / 0.15) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.72 0.13 70 / 0.08) 1px, transparent 1px);
+  background-size: 40px 40px, 80px 80px;
+  background-position: 0 0, 20px 20px;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes drift {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(6px, -8px); }
+  50%  { transform: translate(-4px, -14px); }
+  75%  { transform: translate(-8px, -4px); }
+  100% { transform: translate(0, 0); }
 }

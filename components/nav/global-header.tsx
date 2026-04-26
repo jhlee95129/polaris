@@ -1,15 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ReactNode } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { getUserId, clearUser } from "@/lib/storage"
 import { Button } from "@/components/ui/button"
+import { Home, MessageCircle, Coins, User, LogOut, Sparkles } from "lucide-react"
 
-const NAV_ITEMS = [
-  { href: "/", label: "홈", emoji: "🏠" },
-  { href: "/chat", label: "상담", emoji: "💬", auth: true },
-  { href: "/bokchae", label: "복채", emoji: "🪙", auth: true },
-  { href: "/mypage", label: "내 정보", emoji: "👤", auth: true },
+const NAV_ITEMS: { href: string; label: string; icon: ReactNode; auth?: boolean }[] = [
+  { href: "/", label: "홈", icon: <Home className="h-4 w-4" /> },
+  { href: "/chat", label: "상담", icon: <MessageCircle className="h-4 w-4" />, auth: true },
+  { href: "/bokchae", label: "복채", icon: <Coins className="h-4 w-4" />, auth: true },
+  { href: "/mypage", label: "내 정보", icon: <User className="h-4 w-4" />, auth: true },
 ]
 
 export default function GlobalHeader() {
@@ -44,7 +45,7 @@ export default function GlobalHeader() {
         <div className="flex items-center px-6 py-3">
           <button onClick={() => router.push("/")} className="flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/logo-text.png" alt="폴라리스" className="h-6 w-auto dark:invert" />
+            <img src="/images/logo-text.png" alt="폴라리스" className="h-4.5 w-auto dark:invert" />
           </button>
         </div>
       </header>
@@ -57,7 +58,7 @@ export default function GlobalHeader() {
         {/* 로고 */}
         <button onClick={() => router.push("/")} className="flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/logo-text.png" alt="폴라리스" className="h-6 w-auto dark:invert" />
+            <img src="/images/logo-text.png" alt="폴라리스" className="h-4.5 w-auto dark:invert" />
         </button>
 
         <div className="flex items-center gap-0.5">
@@ -76,7 +77,7 @@ export default function GlobalHeader() {
                     : "text-muted-foreground hover:text-foreground"
                   }
                 >
-                  <span className="text-sm md:mr-1">{item.emoji}</span>
+                  <span className="md:mr-1">{item.icon}</span>
                   <span className="hidden md:inline">{item.label}</span>
                 </Button>
               )
@@ -94,12 +95,12 @@ export default function GlobalHeader() {
               onClick={handleLogout}
               className="text-muted-foreground hover:text-destructive"
             >
-              <span className="text-sm md:mr-1">👋</span>
+              <LogOut className="h-4 w-4 md:mr-1" />
               <span className="hidden md:inline">로그아웃</span>
             </Button>
           ) : (
             <Button size="sm" onClick={() => router.push("/onboarding")}>
-              <span className="text-sm md:mr-1">✨</span>
+              <Sparkles className="h-4 w-4 md:mr-1" />
               <span className="hidden md:inline">시작하기</span>
             </Button>
           )}

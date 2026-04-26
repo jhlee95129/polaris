@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Geist_Mono } from "next/font/google"
+import { Geist_Mono, Black_Han_Sans } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -9,6 +9,12 @@ import { cn } from "@/lib/utils"
 const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+})
+
+const fontLogo = Black_Han_Sans({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-logo",
 })
 
 export const metadata: Metadata = {
@@ -32,7 +38,7 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable)}
+      className={cn("antialiased", fontMono.variable, fontLogo.variable)}
     >
       <head>
         <link

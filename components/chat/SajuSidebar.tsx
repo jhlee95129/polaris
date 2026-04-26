@@ -1,24 +1,24 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { Trash2, Plus, Calendar, Waves, TreePine, Flame, Mountain, Gem, Droplets, User, type LucideIcon } from "lucide-react"
 import { clearUser } from "@/lib/storage"
-import { pillarToHanja, getSiLabel, STEM_MAP, BRANCH_MAP, ELEMENTS, type Element } from "@/lib/saju-data"
+import { pillarToHanja, getSiLabel, STEM_MAP, BRANCH_MAP, ELEMENTS, ELEMENT_COLORS, ELEMENT_BG, getIlganElement, type Element } from "@/lib/saju-data"
+import { cn } from "@/lib/utils"
 
-const ELEMENT_COLORS: Record<Element, string> = {
-  목: "text-green-600 dark:text-green-400",
-  화: "text-red-500 dark:text-red-400",
-  토: "text-amber-600 dark:text-amber-400",
-  금: "text-slate-500 dark:text-slate-300",
-  수: "text-blue-500 dark:text-blue-400",
+const ELEMENT_ICON: Record<Element, LucideIcon> = {
+  목: TreePine,
+  화: Flame,
+  토: Mountain,
+  금: Gem,
+  수: Droplets,
 }
 
-const ELEMENT_BG: Record<Element, string> = {
-  목: "bg-green-500/10",
-  화: "bg-red-500/10",
-  토: "bg-amber-500/10",
-  금: "bg-slate-500/10",
-  수: "bg-blue-500/10",
+interface SessionItem {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
 }
 
 interface SajuSidebarProps {
@@ -38,6 +38,10 @@ interface SajuSidebarProps {
   gender: string
   ilgan: string
   daeunCurrent: string | null
+  sessions: SessionItem[]
+  currentSessionId: string | null
+  onSessionSwitch: (sessionId: string) => void
+  onNewChat: () => void
   onReset: () => void
 }
 
@@ -95,6 +99,10 @@ export default function SajuSidebar({
   gender,
   ilgan,
   daeunCurrent,
+  sessions,
+  currentSessionId,
+  onSessionSwitch,
+  onNewChat,
   onReset,
 }: SajuSidebarProps) {
   function handleReset() {
@@ -109,13 +117,18 @@ export default function SajuSidebar({
   const dayStem = ilgan?.[0]
   const dayStemInfo = dayStem ? STEM_MAP[dayStem] : null
 
+  // 오행 아바타
+  const element = getIlganElement(ilgan)
+  const AvatarIcon = element ? ELEMENT_ICON[element] : User
+  const avatarColor = element ? ELEMENT_COLORS[element] : "text-muted-foreground"
+
   return (
-    <div className="flex h-full flex-col bg-card/50 overflow-y-auto">
+    <div className="flex h-full flex-col bg-card/50">
       {/* 프로필 헤더 */}
       <div className="p-4 pb-3 border-b border-border">
         <div className="flex items-center gap-3 mb-2">
-          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-lg">
-            {gender === "male" ? "👨" : "👩"}
+          <div className={`h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center ${avatarColor}`}>
+            <AvatarIcon className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate">{displayName || "사용자"}</p>
@@ -123,12 +136,13 @@ export default function SajuSidebar({
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span>📅</span>
+          <Calendar className="h-3 w-3" />
           <span>{getTodayLabel()}</span>
         </div>
       </div>
 
-      <div className="p-4 space-y-4 flex-1">
+      {/* 사주 정보 */}
+      <div className="p-4 space-y-4 border-b border-border">
         {/* 일간 */}
         {dayStemInfo && (
           <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/10">
@@ -171,7 +185,7 @@ export default function SajuSidebar({
           const dStem = STEM_MAP[daeunCurrent[0]]
           return (
             <div className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-background/50">
-              <span className="text-base">🌊</span>
+              <Waves className="h-4 w-4 text-muted-foreground shrink-0" />
               <div className="flex-1">
                 <p className="text-[9px] text-muted-foreground uppercase tracking-wider">현재 대운</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -187,6 +201,41 @@ export default function SajuSidebar({
             </div>
           )
         })()}
+      </div>
+
+      {/* 대화 목록 */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-3 pb-1 flex items-center justify-between">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">대화 목록</p>
+          <button
+            onClick={onNewChat}
+            className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+          >
+            <Plus className="h-3 w-3" />
+            새 대화
+          </button>
+        </div>
+        <div className="px-2 pb-2 space-y-0.5">
+          {sessions.map(session => (
+            <button
+              key={session.id}
+              onClick={() => onSessionSwitch(session.id)}
+              className={cn(
+                "w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors truncate",
+                session.id === currentSessionId
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {session.title}
+            </button>
+          ))}
+          {sessions.length === 0 && (
+            <p className="text-[11px] text-muted-foreground/50 px-2.5 py-3 text-center">
+              아직 대화가 없습니다
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 하단 */}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSupabase } from "@/lib/supabase/server"
-import { updateUser } from "@/lib/db/queries"
+import { updateUser, getUserSessions } from "@/lib/db/queries"
 import { calculateSajuProfile, generateSajuContext, type BirthInfo } from "@/lib/saju"
 import { STEM_MAP } from "@/lib/saju-data"
 import { generateText } from "@/lib/claude"
@@ -24,15 +24,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "사용자 없음" }, { status: 404 })
   }
 
-  // 메시지 로드
-  const { data: msgData } = await supabase
-    .from("messages")
-    .select("id, role, content, metadata, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .limit(50)
+  // 세션 목록 로드
+  const sessions = await getUserSessions(userId)
 
-  return NextResponse.json({ user: userData, messages: msgData ?? [] })
+  return NextResponse.json({ user: userData, sessions })
 }
 
 export async function PUT(req: NextRequest) {

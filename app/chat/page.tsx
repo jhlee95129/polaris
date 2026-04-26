@@ -2,13 +2,21 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { getUserId } from "@/lib/storage"
+import { getUserId, getPendingTopic, getCurrentSessionId, setCurrentSessionId } from "@/lib/storage"
 import MessageList, { type ChatMessage } from "@/components/chat/MessageList"
 import MessageInput from "@/components/chat/MessageInput"
 import SajuSidebar from "@/components/chat/SajuSidebar"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
-import { ChevronDown, ChevronUp } from "lucide-react"
-import { pillarToHanja } from "@/lib/saju-data"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { ChevronDown, ChevronUp, Plus, Star, MessageCircle } from "lucide-react"
+import { pillarToHanja, getIlganElement, ELEMENT_COLORS } from "@/lib/saju-data"
+import { TreePine, Flame, Mountain, Gem, Droplets, type LucideIcon } from "lucide-react"
+import type { Element } from "@/lib/saju-data"
+import { cn } from "@/lib/utils"
+
+const ELEMENT_ICON: Record<Element, LucideIcon> = {
+  목: TreePine, 화: Flame, 토: Mountain, 금: Gem, 수: Droplets,
+}
 
 interface UserData {
   id: string
@@ -28,6 +36,13 @@ interface UserData {
   daeun_current: string | null
 }
 
+interface SessionItem {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
 export default function ChatPage() {
   const router = useRouter()
   const [userId, setUserIdState] = useState<string | null>(null)
@@ -35,6 +50,10 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false)
+  const [sessions, setSessions] = useState<SessionItem[]>([])
+  const [currentSessionId, setCurrentSessionIdState] = useState<string | null>(null)
+  const [mobileSessionListOpen, setMobileSessionListOpen] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   // 초기 로드
   useEffect(() => {
@@ -44,10 +63,10 @@ export default function ChatPage() {
       return
     }
     setUserIdState(id)
-    loadUserAndMessages(id)
+    loadUserAndSessions(id)
   }, [router])
 
-  async function loadUserAndMessages(id: string) {
+  async function loadUserAndSessions(id: string) {
     try {
       const res = await fetch(`/api/user?id=${id}`)
       if (!res.ok) {
@@ -55,47 +74,100 @@ export default function ChatPage() {
         return
       }
 
-      const { user: userData, messages: msgData } = await res.json()
+      const { user: userData, sessions: sessionData } = await res.json()
       const u = userData as UserData
       setUser(u)
+      const loadedSessions: SessionItem[] = sessionData ?? []
+      setSessions(loadedSessions)
 
-      // 기본 basis (metadata 없는 이전 메시지용 폴백)
-      const fallbackBasis: ChatMessage["basis"] = {
-        ilgan: u.ilgan,
-        ilganChunk: null,
-        pillars: { yeon: u.yeon_pillar, wol: u.wol_pillar, il: u.il_pillar, si: u.si_pillar },
-        daeun: u.daeun_current || null,
-      }
+      // 현재 세션 결정
+      const pendingTopic = getPendingTopic()
+      const savedSessionId = getCurrentSessionId()
 
-      const loadedMessages: ChatMessage[] = (msgData ?? []).map((m: { id: string; role: string; content: string; metadata?: { basis?: ChatMessage["basis"] } | null }) => ({
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        ...(m.role === "assistant" ? { basis: m.metadata?.basis ?? fallbackBasis } : {}),
-      }))
-      setMessages(loadedMessages)
-
-      // 인사 필요 여부 판단
-      const lastMsg = msgData?.[msgData.length - 1]
-      const needsGreeting = !lastMsg ||
-        (Date.now() - new Date(lastMsg.created_at).getTime()) > 4 * 60 * 60 * 1000
-
-      if (needsGreeting) {
-        requestGreeting(id, loadedMessages)
+      if (pendingTopic) {
+        // 랜딩 카드 → 새 세션 생성 후 자동 전송
+        const session = await createNewSession(id)
+        setIsInitializing(false)
+        await autoSendTopic(id, session.id, pendingTopic, [])
+      } else if (savedSessionId && loadedSessions.some(s => s.id === savedSessionId)) {
+        // 저장된 세션 복원
+        await loadSessionMessages(savedSessionId)
+        setIsInitializing(false)
+      } else if (loadedSessions.length > 0) {
+        // 가장 최근 세션 로드
+        await loadSessionMessages(loadedSessions[0].id)
+        setIsInitializing(false)
+      } else {
+        // 세션 없음 → 새 세션 생성 + greeting
+        const session = await createNewSession(id)
+        setIsInitializing(false)
+        requestGreeting(id, session.id, [])
       }
     } catch {
       router.replace("/onboarding")
     }
   }
 
+  // 새 세션 생성
+  async function createNewSession(userId: string): Promise<SessionItem> {
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    })
+    const { session } = await res.json()
+    setSessions(prev => [session, ...prev])
+    setCurrentSessionIdState(session.id)
+    setCurrentSessionId(session.id)
+    setMessages([])
+    return session
+  }
+
+  // 세션 메시지 로드
+  async function loadSessionMessages(sessionId: string) {
+    setCurrentSessionIdState(sessionId)
+    setCurrentSessionId(sessionId)
+
+    const res = await fetch(`/api/sessions/${sessionId}/messages`)
+    const { messages: msgData } = await res.json()
+
+    const fallbackBasis: ChatMessage["basis"] = user ? {
+      ilgan: user.ilgan,
+      ilganChunk: null,
+      pillars: { yeon: user.yeon_pillar, wol: user.wol_pillar, il: user.il_pillar, si: user.si_pillar },
+      daeun: user.daeun_current || null,
+    } : undefined
+
+    const loadedMessages: ChatMessage[] = (msgData ?? []).map((m: { id: string; role: string; content: string; metadata?: { basis?: ChatMessage["basis"] } | null }) => ({
+      id: m.id,
+      role: m.role as "user" | "assistant",
+      content: m.content,
+      ...(m.role === "assistant" ? { basis: m.metadata?.basis ?? fallbackBasis } : {}),
+    }))
+    setMessages(loadedMessages)
+  }
+
+  // 새 대화 버튼
+  async function handleNewChat() {
+    if (!userId || isStreaming) return
+    const session = await createNewSession(userId)
+    requestGreeting(userId, session.id, [])
+  }
+
+  // 세션 전환
+  async function handleSessionSwitch(sessionId: string) {
+    if (sessionId === currentSessionId || isStreaming) return
+    await loadSessionMessages(sessionId)
+  }
+
   // 인사 요청
-  async function requestGreeting(id: string, currentMessages: ChatMessage[]) {
+  async function requestGreeting(id: string, sessionId: string, currentMessages: ChatMessage[]) {
     setIsStreaming(true)
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: id, greeting: true }),
+        body: JSON.stringify({ user_id: id, session_id: sessionId, greeting: true }),
       })
 
       if (!res.ok) {
@@ -116,7 +188,6 @@ export default function ChatPage() {
         }
       }
 
-      // SSE 스트리밍 읽기
       await readStream(res, currentMessages)
     } catch (err) {
       console.error("인사 요청 실패:", err)
@@ -124,11 +195,40 @@ export default function ChatPage() {
     setIsStreaming(false)
   }
 
+  // 주제 카드 → 자동 전송
+  async function autoSendTopic(id: string, sessionId: string, text: string, currentMessages: ChatMessage[]) {
+    const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", content: text }
+    const updatedMessages = [...currentMessages, userMsg]
+    setMessages(updatedMessages)
+    setIsStreaming(true)
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: id, session_id: sessionId, message: text }),
+      })
+      if (!res.ok) throw new Error("채팅 요청 실패")
+      await readStream(res, updatedMessages)
+
+      // 세션 제목 업데이트
+      const title = text.length > 30 ? text.slice(0, 30) + "..." : text
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title } : s))
+    } catch (err) {
+      console.error("자동 전송 실패:", err)
+      setMessages(prev => [...prev, {
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: "미안, 지금 좀 연결이 불안정해. 잠시 후에 다시 말해줄래?",
+      }])
+    }
+    setIsStreaming(false)
+  }
+
   // 메시지 전송
   const handleSend = useCallback(async (text: string) => {
-    if (!userId || isStreaming) return
+    if (!userId || !currentSessionId || isStreaming) return
 
-    // 사용자 메시지 추가
     const userMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
       role: "user",
@@ -142,7 +242,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, message: text }),
+        body: JSON.stringify({ user_id: userId, session_id: currentSessionId, message: text }),
       })
 
       if (!res.ok) {
@@ -152,9 +252,14 @@ export default function ChatPage() {
       }
 
       await readStream(res, updatedMessages)
+
+      // 첫 메시지면 세션 제목 업데이트
+      if (messages.length === 0) {
+        const title = text.length > 30 ? text.slice(0, 30) + "..." : text
+        setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title } : s))
+      }
     } catch (err) {
       console.error("메시지 전송 실패:", err)
-      // 에러 메시지
       setMessages(prev => [...prev, {
         id: `error-${Date.now()}`,
         role: "assistant",
@@ -162,7 +267,7 @@ export default function ChatPage() {
       }])
     }
     setIsStreaming(false)
-  }, [userId, isStreaming, messages])
+  }, [userId, currentSessionId, isStreaming, messages])
 
   // SSE 스트리밍 읽기
   async function readStream(res: Response, currentMessages: ChatMessage[]) {
@@ -190,7 +295,6 @@ export default function ChatPage() {
           const parsed = JSON.parse(data)
           if (parsed.meta?.basis) {
             basis = parsed.meta.basis
-            // 클린 텍스트가 있으면 saju_basis 태그 제거된 버전으로 교체
             if (parsed.meta.cleanText) {
               assistantContent = parsed.meta.cleanText
             }
@@ -211,7 +315,6 @@ export default function ChatPage() {
           }
           if (parsed.text) {
             assistantContent += parsed.text
-            // 스트리밍 중 <saju_basis> 태그가 보이지 않도록 실시간 제거
             const displayContent = assistantContent.replace(/<saju_basis[\s\S]*$/, "").trimEnd()
             setMessages([
               ...currentMessages,
@@ -225,12 +328,11 @@ export default function ChatPage() {
     }
   }
 
-  // 리셋 핸들러
   function handleReset() {
     router.replace("/")
   }
 
-  if (!user) {
+  if (!user || isInitializing) {
     return (
       <div className="flex min-h-svh items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -240,6 +342,11 @@ export default function ChatPage() {
       </div>
     )
   }
+
+  // 오행 아바타 아이콘
+  const element = getIlganElement(user.ilgan)
+  const MobileAvatarIcon = element ? ELEMENT_ICON[element] : Star
+  const mobileAvatarColor = element ? ELEMENT_COLORS[element] : "text-primary"
 
   const sidebarProps = {
     displayName: user.display_name,
@@ -258,8 +365,14 @@ export default function ChatPage() {
     gender: user.gender,
     ilgan: user.ilgan,
     daeunCurrent: user.daeun_current,
+    sessions,
+    currentSessionId,
+    onSessionSwitch: handleSessionSwitch,
+    onNewChat: handleNewChat,
     onReset: handleReset,
   }
+
+  const currentSessionTitle = sessions.find(s => s.id === currentSessionId)?.title || "새 대화"
 
   return (
     <div className="h-[calc(100svh-49px)]">
@@ -272,21 +385,40 @@ export default function ChatPage() {
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="75%">
             <div className="flex h-full flex-col">
-              <MessageList messages={messages} isStreaming={isStreaming} />
+              <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} />
               <MessageInput onSend={handleSend} disabled={isStreaming} />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
 
-      {/* 모바일: 접히는 헤더 */}
+      {/* 모바일 */}
       <div className="md:hidden flex flex-col h-full">
-        <div className="border-b border-border bg-card/50 px-4 py-3">
+        <div className="border-b border-border bg-card/50 px-4 py-3 space-y-2">
+          {/* 세션 제목 + 새 대화 */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setMobileSessionListOpen(true)}
+              className="flex items-center gap-2 flex-1 min-w-0"
+            >
+              <MessageCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-medium truncate">{currentSessionTitle}</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+            </button>
+            <button
+              onClick={handleNewChat}
+              className="ml-2 p-1.5 rounded-lg hover:bg-muted transition-colors"
+            >
+              <Plus className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+
+          {/* 사주 정보 토글 */}
           <button
             onClick={() => setMobileInfoOpen(!mobileInfoOpen)}
             className="flex items-center gap-2 w-full"
           >
-            <span className="text-sm">🔮</span>
+            <MobileAvatarIcon className={`h-4 w-4 ${mobileAvatarColor}`} />
             <span className="text-sm font-medium flex-1 text-left truncate">
               {user.saju_summary || "내 명식 보기"}
             </span>
@@ -298,7 +430,7 @@ export default function ChatPage() {
           </button>
 
           {mobileInfoOpen && (
-            <div className="mt-3 space-y-2">
+            <div className="space-y-2">
               <div className="grid grid-cols-4 gap-2 text-center p-2 rounded-lg bg-background/50 border border-border">
                 {[
                   { label: "시주", value: user.si_pillar || "—" },
@@ -317,14 +449,52 @@ export default function ChatPage() {
               </div>
               {user.daeun_current && (
                 <p className="text-xs text-muted-foreground">
-                  🌊 현재 대운: <span className="font-medium text-foreground">{user.daeun_current}</span>
+                  현재 대운: <span className="font-medium text-foreground">{user.daeun_current}</span>
                 </p>
               )}
             </div>
           )}
         </div>
 
-        <MessageList messages={messages} isStreaming={isStreaming} />
+        {/* 모바일 세션 목록 Sheet */}
+        <Sheet open={mobileSessionListOpen} onOpenChange={setMobileSessionListOpen}>
+          <SheetContent side="left" className="w-[280px]">
+            <SheetHeader>
+              <SheetTitle>대화 목록</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-1 mt-4">
+              <button
+                onClick={() => {
+                  handleNewChat()
+                  setMobileSessionListOpen(false)
+                }}
+                className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-primary hover:bg-primary/5 transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                새 대화
+              </button>
+              {sessions.map(session => (
+                <button
+                  key={session.id}
+                  onClick={() => {
+                    handleSessionSwitch(session.id)
+                    setMobileSessionListOpen(false)
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors truncate",
+                    session.id === currentSessionId
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {session.title}
+                </button>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} />
         <MessageInput onSend={handleSend} disabled={isStreaming} />
       </div>
     </div>

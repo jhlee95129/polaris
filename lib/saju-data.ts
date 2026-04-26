@@ -279,6 +279,34 @@ export function calculateTenGodFromBranch(dayStem: string, targetBranch: string)
  * 오행 분포에서 가장 부족한 오행을 보충하는 용신 추론 (간이 버전)
  * 실제 명리학에서는 훨씬 복잡하지만, MVP 수준의 근사치
  */
+// ─── 오행 색상 유틸 ───
+
+export const ELEMENT_COLORS: Record<Element, string> = {
+  목: "text-green-600 dark:text-green-400",
+  화: "text-red-500 dark:text-red-400",
+  토: "text-amber-600 dark:text-amber-400",
+  금: "text-slate-500 dark:text-slate-300",
+  수: "text-blue-500 dark:text-blue-400",
+}
+
+export const ELEMENT_BG: Record<Element, string> = {
+  목: "bg-green-500/10",
+  화: "bg-red-500/10",
+  토: "bg-amber-500/10",
+  금: "bg-slate-500/10",
+  수: "bg-blue-500/10",
+}
+
+/**
+ * 일간 한글(예: "갑") → 오행 Element 반환
+ */
+export function getIlganElement(ilgan: string): Element | null {
+  const char = ilgan?.[0]
+  if (!char) return null
+  const stem = STEM_MAP[char]
+  return stem?.element ?? null
+}
+
 export function inferUsefulGod(
   elementCounts: Record<Element, number>,
   dayStemElement: Element
