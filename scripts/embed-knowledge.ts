@@ -1,5 +1,5 @@
 /**
- * 명리학 텍스트 → 청킹 → OpenAI 임베딩 → Supabase pgvector 저장
+ * ilgan-characteristics.md → 청킹 → OpenAI 임베딩 → Supabase pgvector 저장
  *
  * 실행: npx tsx scripts/embed-knowledge.ts
  *
@@ -9,25 +9,16 @@
  * - SUPABASE_SECRET_KEY
  */
 
-import { readFileSync, readdirSync } from "fs"
+import { readFileSync } from "fs"
 import { join } from "path"
 import OpenAI from "openai"
 import { createClient } from "@supabase/supabase-js"
-import { chunkText } from "../lib/rag"
+import { chunkByHeaders } from "../lib/rag"
 
 const KNOWLEDGE_DIR = join(process.cwd(), "data", "saju-knowledge")
 const EMBEDDING_MODEL = "text-embedding-3-large"
 
-// 파일명 → 카테고리 매핑
-const CATEGORY_MAP: Record<string, string> = {
-  "oheng-relations.md": "오행관계",
-  "sipsin-analysis.md": "십신분석",
-  "ilgan-characteristics.md": "일간특성",
-  "life-coaching.md": "라이프코칭",
-}
-
 async function main() {
-  // 환경변수 확인
   if (!process.env.OPENAI_API_KEY) {
     console.error("OPENAI_API_KEY 환경변수가 필요합니다")
     process.exit(1)
@@ -45,78 +36,59 @@ async function main() {
 
   // 기존 데이터 삭제
   console.log("기존 데이터 삭제 중...")
-  const { error: deleteError } = await supabase
-    .from("saju_knowledge")
-    .delete()
-    .neq("id", 0) // 모든 행 삭제
+  await supabase.from("saju_knowledge").delete().neq("id", "00000000-0000-0000-0000-000000000000")
 
-  if (deleteError) {
-    console.warn("기존 데이터 삭제 실패 (테이블이 없을 수 있음):", deleteError.message)
-  }
+  // ilgan-characteristics.md만 처리 (SPEC 5-3)
+  const filePath = join(KNOWLEDGE_DIR, "ilgan-characteristics.md")
+  const content = readFileSync(filePath, "utf-8")
+  const chunks = chunkByHeaders(content, "ilgan-characteristics")
 
-  // 파일 읽기 및 청킹
-  const files = readdirSync(KNOWLEDGE_DIR).filter(f => f.endsWith(".md"))
-  console.log(`${files.length}개 파일 발견:`, files)
+  console.log(`${chunks.length}개 일간 청크 발견`)
 
-  const allChunks: Array<{
-    category: string
-    title: string
+  const rows: Array<{
+    source_file: string
     content: string
-    source_document: string
-    chunk_index: number
     embedding: number[]
+    metadata: Record<string, string>
   }> = []
 
-  for (const file of files) {
-    const category = CATEGORY_MAP[file] || "기타"
-    const content = readFileSync(join(KNOWLEDGE_DIR, file), "utf-8")
-    const chunks = chunkText(content, category, file)
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]
+    console.log(`  [${i + 1}/${chunks.length}] 임베딩 생성: ${chunk.metadata.ilgan || "?"}`)
 
-    console.log(`  ${file}: ${chunks.length}개 청크`)
+    const embeddingResponse = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: chunk.content,
+      dimensions: 2000,
+    })
 
-    // 임베딩 생성 (배치)
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i]
-      console.log(`    [${i + 1}/${chunks.length}] 임베딩 생성: ${chunk.title.slice(0, 30)}...`)
+    rows.push({
+      source_file: chunk.sourceFile,
+      content: chunk.content,
+      embedding: embeddingResponse.data[0].embedding,
+      metadata: chunk.metadata,
+    })
 
-      const embeddingResponse = await openai.embeddings.create({
-        model: EMBEDDING_MODEL,
-        input: `${chunk.category}: ${chunk.title}\n${chunk.content}`,
-        dimensions: 2000,
-      })
-
-      allChunks.push({
-        category: chunk.category,
-        title: chunk.title,
-        content: chunk.content,
-        source_document: chunk.sourceDocument,
-        chunk_index: chunk.chunkIndex,
-        embedding: embeddingResponse.data[0].embedding,
-      })
-
-      // Rate limiting
-      await sleep(200)
-    }
+    // Rate limiting
+    await sleep(200)
   }
 
   // Supabase에 저장
-  console.log(`\n총 ${allChunks.length}개 청크를 Supabase에 저장 중...`)
+  console.log(`\n총 ${rows.length}개 청크를 Supabase에 저장 중...`)
 
-  // 배치 삽입 (10개씩)
-  const batchSize = 10
-  for (let i = 0; i < allChunks.length; i += batchSize) {
-    const batch = allChunks.slice(i, i + batchSize)
+  for (let i = 0; i < rows.length; i += 10) {
+    const batch = rows.slice(i, i + 10)
     const { error } = await supabase.from("saju_knowledge").insert(batch)
 
     if (error) {
-      console.error(`배치 ${i / batchSize + 1} 삽입 실패:`, error.message)
+      console.error(`배치 ${Math.floor(i / 10) + 1} 삽입 실패:`, error.message)
     } else {
-      console.log(`  배치 ${i / batchSize + 1} 저장 완료 (${batch.length}개)`)
+      console.log(`  배치 ${Math.floor(i / 10) + 1} 저장 완료 (${batch.length}개)`)
     }
   }
 
   console.log("\n임베딩 완료!")
-  console.log(`총 ${allChunks.length}개 청크가 저장되었습니다.`)
+  console.log(`총 ${rows.length}개 청크가 저장되었습니다.`)
 }
 
 function sleep(ms: number) {

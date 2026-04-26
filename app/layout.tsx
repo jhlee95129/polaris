@@ -1,11 +1,10 @@
 import type { Metadata, Viewport } from "next"
-import { Geist_Mono, Inter } from "next/font/google"
+import { Geist_Mono } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import GlobalHeader from "@/components/nav/global-header"
 import { cn } from "@/lib/utils"
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
@@ -13,9 +12,9 @@ const fontMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "한수 — AI 사주 라이프 코치",
+  title: "폴라리스 — 길을 잃었을 때, 방향을 잡아주는 별",
   description:
-    "사주로 읽는 오늘의 한수. AI가 당신의 사주를 분석하고, 지금 이 순간에 필요한 구체적인 행동을 코칭합니다.",
+    "한 번 명식 입력하면, 그 다음부터는 친구한테 고민 털어놓듯 사주를 보는 앱. 길을 잃었을 때 방향을 잡아주는 북극성.",
 }
 
 export const viewport: Viewport = {
@@ -33,10 +32,21 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
+      className={cn("antialiased", fontMono.variable)}
     >
+      <head>
+        <link
+          rel="stylesheet"
+          as="style"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+      </head>
       <body className="min-h-svh bg-background">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <GlobalHeader />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

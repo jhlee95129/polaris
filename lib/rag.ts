@@ -1,15 +1,13 @@
 /**
  * RAG 파이프라인
- * 명리학 지식 텍스트를 벡터 검색하여 Claude 프롬프트에 주입
+ * ilgan-characteristics.md 전용 — 일간 해석 grounding
  *
- * 흐름: 사용자 질문 + 사주 키워드 → OpenAI 임베딩 → Supabase pgvector 검색 → Top-K 결과 반환
+ * 흐름: 일간 키워드 → OpenAI 임베딩 → Supabase pgvector 검색 → Top-1 반환
  */
 
 import OpenAI from "openai"
 
 const EMBEDDING_MODEL = "text-embedding-3-large"
-const MATCH_THRESHOLD = 0.3
-const MATCH_COUNT = 5
 
 let openaiClient: OpenAI | null = null
 
@@ -34,150 +32,88 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   return response.data[0].embedding
 }
 
-// ─── 벡터 검색 ───
-
-export interface SearchResult {
-  id: number
-  category: string
-  title: string
-  content: string
-  similarity: number
-}
+// ─── 일간 특성 검색 (Top-1) ───
 
 /**
- * Supabase pgvector에서 관련 명리학 지식 검색
- * 환경변수가 없으면 빈 배열 반환 (graceful degradation)
+ * 사용자 일간에 해당하는 일간 특성 chunk를 RAG에서 검색
+ * @returns 일간 특성 텍스트 (없으면 빈 문자열)
  */
-export async function searchKnowledge(
-  query: string,
-  additionalKeywords?: string[]
-): Promise<SearchResult[]> {
-  // Supabase/OpenAI 미설정 시 빈 배열 반환
+export async function searchIlganCharacteristics(ilgan: string): Promise<string> {
   if (!process.env.OPENAI_API_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
-    return []
+    return ""
   }
 
   try {
-    // 검색 쿼리 구성 (질문 + 사주 키워드)
-    const searchText = additionalKeywords
-      ? `${query} ${additionalKeywords.join(" ")}`
-      : query
+    const query = `${ilgan} 일간 특성`
+    const embedding = await generateEmbedding(query)
 
-    // 임베딩 생성
-    const embedding = await generateEmbedding(searchText)
-
-    // Supabase에서 벡터 검색
     const { getServerSupabase } = await import("./supabase/server")
     const supabase = getServerSupabase()
 
     const { data, error } = await supabase.rpc("match_saju_knowledge", {
       query_embedding: embedding,
-      match_threshold: MATCH_THRESHOLD,
-      match_count: MATCH_COUNT,
+      match_threshold: 0.3,
+      match_count: 1,
     })
 
-    if (error) {
-      console.error("벡터 검색 오류:", error)
-      return []
+    if (error || !data || data.length === 0) {
+      return ""
     }
 
-    return (data ?? []) as SearchResult[]
+    return data[0].content as string
   } catch (error) {
     console.error("RAG 검색 실패:", error)
-    return []
+    return ""
   }
-}
-
-// ─── 컨텍스트 포맷팅 ───
-
-/**
- * 검색 결과를 Claude 프롬프트에 주입할 형태로 포맷팅
- */
-export function formatRAGContext(results: SearchResult[]): string {
-  if (results.length === 0) return ""
-
-  const formatted = results.map((r, i) =>
-    `[${i + 1}] (${r.category}) ${r.title}\n${r.content}`
-  ).join("\n\n")
-
-  return `[검색된 명리학 전문 지식 — 아래 내용을 참고하여 답변하세요]\n\n${formatted}`
 }
 
 // ─── 청킹 유틸 (임베딩 스크립트용) ───
 
 export interface Chunk {
-  category: string
-  title: string
+  sourceFile: string
   content: string
-  sourceDocument: string
-  chunkIndex: number
+  metadata: Record<string, string>
 }
 
 /**
- * 텍스트를 청크로 분할
- * 500토큰 ≈ 1000자(한국어) 기준, 100자 오버랩
+ * 마크다운을 ## 헤더 기준으로 chunk 분할
+ * [출처] 라인을 파싱하여 metadata.source로 분리
  */
-export function chunkText(
+export function chunkByHeaders(
   text: string,
-  category: string,
-  sourceDocument: string,
-  chunkSize: number = 1000,
-  overlap: number = 100
+  sourceFile: string
 ): Chunk[] {
-  const chunks: Chunk[] = []
-
-  // 섹션 단위로 먼저 분할 (## 헤더 기준)
   const sections = text.split(/^## /m).filter(Boolean)
-
-  let chunkIndex = 0
+  const chunks: Chunk[] = []
 
   for (const section of sections) {
     const lines = section.split("\n")
-    const title = lines[0]?.trim() || "일반"
-    const body = lines.slice(1).join("\n").trim()
+    const title = lines[0]?.trim() || ""
+    let body = lines.slice(1).join("\n").trim()
 
-    if (body.length <= chunkSize) {
-      // 섹션이 청크 크기 이하면 그대로 사용
-      if (body.length > 0) {
-        chunks.push({
-          category,
-          title,
-          content: body,
-          sourceDocument,
-          chunkIndex: chunkIndex++,
-        })
-      }
-    } else {
-      // 섹션이 크면 문단 단위로 분할
-      const paragraphs = body.split(/\n\n+/)
-      let current = ""
+    if (!body) continue
 
-      for (const para of paragraphs) {
-        if ((current + para).length > chunkSize && current.length > 0) {
-          chunks.push({
-            category,
-            title,
-            content: current.trim(),
-            sourceDocument,
-            chunkIndex: chunkIndex++,
-          })
-          // 오버랩: 마지막 overlap 글자를 다음 청크에 포함
-          current = current.slice(-overlap) + "\n\n" + para
-        } else {
-          current += (current ? "\n\n" : "") + para
-        }
-      }
-
-      if (current.trim()) {
-        chunks.push({
-          category,
-          title,
-          content: current.trim(),
-          sourceDocument,
-          chunkIndex: chunkIndex++,
-        })
-      }
+    // [출처] 라인 파싱
+    const metadata: Record<string, string> = {}
+    const sourceMatch = body.match(/\[출처\]\s*(.+)$/m)
+    if (sourceMatch) {
+      metadata.source = sourceMatch[1].trim()
+      body = body.replace(/\[출처\]\s*.+$/m, "").trim()
     }
+
+    // 일간 이름 추출 (제목에서)
+    const ilganMatch = title.match(/^(.+?)\s*[—\-\(]/)
+    if (ilganMatch) {
+      metadata.ilgan = ilganMatch[1].trim()
+    } else {
+      metadata.ilgan = title
+    }
+
+    chunks.push({
+      sourceFile,
+      content: `## ${title}\n${body}`,
+      metadata,
+    })
   }
 
   return chunks
