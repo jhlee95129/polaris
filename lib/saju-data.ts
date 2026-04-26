@@ -93,6 +93,27 @@ export const BRANCHES: BranchInfo[] = [
 
 export const BRANCH_MAP = Object.fromEntries(BRANCHES.map(b => [b.hangul, b])) as Record<string, BranchInfo>
 
+/**
+ * 한글 기둥(예: "갑자")을 한자 포함 형태(예: "甲子")로 변환
+ */
+export function pillarToHanja(hangul: string): string {
+  if (!hangul || hangul.length < 2) return ""
+  const stem = STEM_MAP[hangul[0]]
+  const branch = BRANCH_MAP[hangul[1]]
+  if (!stem || !branch) return ""
+  return `${stem.hanja}${branch.hanja}`
+}
+
+/**
+ * 시주(예: "정사")에서 시간대 정보(예: "사시(巳時) 09:00-11:00")를 반환
+ */
+export function getSiLabel(siPillar: string): string {
+  if (!siPillar || siPillar.length < 2) return ""
+  const branch = BRANCH_MAP[siPillar[1]]
+  if (!branch) return ""
+  return `${branch.hangul}시(${branch.hanja}時) ${branch.hour}`
+}
+
 // ─── 십신 (Ten Gods) ───
 
 export type TenGodKey =

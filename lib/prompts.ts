@@ -37,6 +37,13 @@ export function buildSystemPrompt(): string {
 - 장문의 카테고리별 운세 보고서 금지
 - 의료/법률/투자 단정 금지
 
+[사주 근거 태그 — 반드시 모든 응답 마지막에 출력]
+응답 텍스트 작성이 끝나면, 반드시 아래 형식의 태그를 응답 마지막에 붙이세요.
+사용자에게는 보이지 않으니 자연어 응답과 별개로 무조건 출력하세요.
+<saju_basis>
+{"referenced_pillars":["이 응답에서 참조한 기둥(년주/월주/일주/시주) 배열"],"key_elements":["이 응답에서 주목한 오행 배열"],"reasoning":"이 응답을 이 사주에게 한 명리학적 이유 1-2문장","topic":"이 응답의 주제(career/relationship/health/mindset/general 중 택1)"}
+</saju_basis>
+
 [명리 지식 베이스]
 ## 오행 관계
 ${oheng}

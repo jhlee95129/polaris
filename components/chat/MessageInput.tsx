@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { ArrowUp } from "lucide-react"
 
 interface MessageInputProps {
@@ -18,7 +17,7 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
     const el = textareaRef.current
     if (!el) return
     el.style.height = "auto"
-    el.style.height = Math.min(el.scrollHeight, 120) + "px"
+    el.style.height = Math.min(el.scrollHeight, 160) + "px"
   }, [value])
 
   function handleSubmit() {
@@ -26,7 +25,6 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
     if (!trimmed || disabled) return
     onSend(trimmed)
     setValue("")
-    // 높이 리셋
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"
     }
@@ -40,26 +38,30 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
   }
 
   return (
-    <div className="border-t border-border bg-background p-3">
-      <div className="mx-auto flex max-w-3xl items-end gap-2">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="고민을 말해봐..."
-          disabled={disabled}
-          rows={1}
-          className="flex-1 resize-none rounded-xl border border-input bg-card px-4 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-        />
-        <Button
-          size="icon"
-          className="h-10 w-10 shrink-0 rounded-xl"
-          onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
-        >
-          <ArrowUp className="h-4 w-4" />
-        </Button>
+    <div className="p-3 pb-4">
+      <div className="mx-auto max-w-3xl">
+        <div className="relative rounded-2xl border border-border bg-card shadow-sm focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="고민을 말해봐..."
+            disabled={disabled}
+            rows={1}
+            className="w-full resize-none bg-transparent px-4 py-3 pr-12 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:outline-none disabled:opacity-50"
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || !value.trim()}
+            className="absolute bottom-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity disabled:opacity-30"
+          >
+            <ArrowUp className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
+          폴라리스는 참고용 사주 해석을 제공하며, 전문 상담을 대체하지 않습니다.
+        </p>
       </div>
     </div>
   )

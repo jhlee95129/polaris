@@ -30,6 +30,7 @@ export interface MessageRow {
   user_id: string
   role: "user" | "assistant"
   content: string
+  metadata: Record<string, unknown> | null
   created_at: string
 }
 
@@ -46,6 +47,22 @@ export async function createUser(
     .single()
 
   if (error) throw new Error(`사용자 생성 실패: ${error.message}`)
+  return user as UserRow
+}
+
+export async function updateUser(
+  id: string,
+  data: Partial<Omit<UserRow, "id" | "created_at">>
+): Promise<UserRow> {
+  const supabase = getServerSupabase()
+  const { data: user, error } = await supabase
+    .from("users")
+    .update(data)
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) throw new Error(`사용자 수정 실패: ${error.message}`)
   return user as UserRow
 }
 
@@ -86,12 +103,13 @@ export async function getRecentMessages(
 export async function saveMessage(
   userId: string,
   role: "user" | "assistant",
-  content: string
+  content: string,
+  metadata?: Record<string, unknown> | null
 ): Promise<void> {
   const supabase = getServerSupabase()
   const { error } = await supabase
     .from("messages")
-    .insert({ user_id: userId, role, content })
+    .insert({ user_id: userId, role, content, metadata: metadata ?? null })
 
   if (error) {
     console.error("메시지 저장 실패:", error.message)

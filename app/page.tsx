@@ -57,15 +57,12 @@ function ChatPreview() {
 export default function LandingPage() {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const [hasUser, setHasUser] = useState(false)
 
   useEffect(() => {
-    const userId = getUserId()
-    if (userId) {
-      router.replace("/chat")
-      return
-    }
+    setHasUser(!!getUserId())
     setMounted(true)
-  }, [router])
+  }, [])
 
   if (!mounted) {
     return <div className="min-h-svh bg-background" />
@@ -111,14 +108,16 @@ export default function LandingPage() {
             <Button
               size="lg"
               className="w-full text-base shadow-md shadow-primary/20"
-              onClick={() => router.push("/onboarding")}
+              onClick={() => router.push(hasUser ? "/chat" : "/onboarding")}
             >
-              폴라리스한테 물어보기
+              {hasUser ? "대화 이어가기" : "폴라리스한테 물어보기"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            <p className="text-xs text-muted-foreground">
-              생년월일만 입력하면 바로 시작
-            </p>
+            {!hasUser && (
+              <p className="text-xs text-muted-foreground">
+                생년월일만 입력하면 바로 시작
+              </p>
+            )}
           </div>
 
           {/* 채팅 미리보기 */}
@@ -240,17 +239,17 @@ export default function LandingPage() {
           <div className="rounded-2xl border border-border bg-card/70 p-8 backdrop-blur-sm sm:p-10">
             <Star className="mx-auto mb-4 h-8 w-8 text-primary" />
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              지금 폴라리스한테 물어봐
+              {hasUser ? "다시 대화하러 갈까?" : "지금 폴라리스한테 물어봐"}
             </h2>
             <p className="mt-3 text-sm text-muted-foreground">
-              생년월일만 알려주면 바로 시작할 수 있어.
+              {hasUser ? "네 사주를 기억하고 있어." : "생년월일만 알려주면 바로 시작할 수 있어."}
             </p>
             <Button
               size="lg"
               className="mt-6 w-full max-w-xs text-base shadow-md shadow-primary/20"
-              onClick={() => router.push("/onboarding")}
+              onClick={() => router.push(hasUser ? "/chat" : "/onboarding")}
             >
-              시작하기
+              {hasUser ? "대화 이어가기" : "시작하기"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>

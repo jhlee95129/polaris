@@ -2,7 +2,7 @@ import { NextRequest } from "next/server"
 import { streamChat } from "@/lib/claude"
 import { buildSystemPrompt, buildUserContextBlock } from "@/lib/prompts"
 import { getUser, getRecentMessages, saveMessage } from "@/lib/db/queries"
-import { searchIlganCharacteristics } from "@/lib/rag"
+import { searchSajuKnowledge } from "@/lib/rag"
 
 const SESSION_GAP_MS = 4 * 60 * 60 * 1000 // 4시간
 
@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 최근 메시지 + RAG 검색
+    // 최근 메시지 + RAG 검색 (사용자 메시지 기반 컨텍스트 검색)
     const recentMessages = await getRecentMessages(user_id, 20)
-    const ilganChunk = await searchIlganCharacteristics(user.ilgan)
+    const ilganChunk = await searchSajuKnowledge(user.ilgan, message)
 
     // 시스템 프롬프트 조립
     const systemPrompt = buildSystemPrompt() + "\n" + buildUserContextBlock({
@@ -85,6 +85,18 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // saju_basis 태그 파싱
+    function parseSajuBasis(text: string) {
+      const match = text.match(/<saju_basis>\s*([\s\S]*?)\s*<\/saju_basis>/)
+      if (!match) return { cleanText: text, sajuBasis: null }
+      const cleanText = text.replace(/<saju_basis>[\s\S]*?<\/saju_basis>/, "").trimEnd()
+      try {
+        return { cleanText, sajuBasis: JSON.parse(match[1]) as Record<string, unknown> }
+      } catch {
+        return { cleanText, sajuBasis: null }
+      }
+    }
+
     // 스트리밍 응답
     const stream = streamChat(systemPrompt, claudeMessages)
     const encoder = new TextEncoder()
@@ -105,22 +117,61 @@ export async function POST(request: NextRequest) {
               )
             }
           }
+
+          // 스트림 완료 — saju_basis 태그 파싱 후 메타데이터 전송
+          const { cleanText, sajuBasis } = parseSajuBasis(fullResponse)
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({
+              meta: {
+                basis: {
+                  ilgan: user.ilgan,
+                  ilganChunk: ilganChunk || null,
+                  pillars: {
+                    yeon: user.yeon_pillar,
+                    wol: user.wol_pillar,
+                    il: user.il_pillar,
+                    si: user.si_pillar,
+                  },
+                  daeun: user.daeun_current || null,
+                  ...(sajuBasis || {}),
+                },
+                cleanText,
+              }
+            })}\n\n`)
+          )
+
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
           controller.close()
         } catch (err) {
+          console.error("스트리밍 오류:", err)
+          const errMsg = err instanceof Error ? err.message : "스트리밍 오류"
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: "스트리밍 오류" })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`)
           )
           controller.close()
         }
 
-        // 스트림 완료 후 DB 저장
+        // 스트림 완료 후 DB 저장 (클린 텍스트)
         try {
+          const { cleanText, sajuBasis } = parseSajuBasis(fullResponse)
           if (message) {
             await saveMessage(user_id, "user", message)
           }
-          if (fullResponse) {
-            await saveMessage(user_id, "assistant", fullResponse)
+          if (cleanText) {
+            await saveMessage(user_id, "assistant", cleanText, {
+              basis: {
+                ilgan: user.ilgan,
+                ilganChunk: ilganChunk || null,
+                pillars: {
+                  yeon: user.yeon_pillar,
+                  wol: user.wol_pillar,
+                  il: user.il_pillar,
+                  si: user.si_pillar,
+                },
+                daeun: user.daeun_current || null,
+                ...(sajuBasis || {}),
+              },
+            })
           }
         } catch (err) {
           console.error("메시지 저장 실패:", err)

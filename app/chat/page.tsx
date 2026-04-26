@@ -6,7 +6,9 @@ import { getUserId } from "@/lib/storage"
 import MessageList, { type ChatMessage } from "@/components/chat/MessageList"
 import MessageInput from "@/components/chat/MessageInput"
 import SajuSidebar from "@/components/chat/SajuSidebar"
-import { Star, ChevronDown, ChevronUp } from "lucide-react"
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
+import { ChevronDown, ChevronUp } from "lucide-react"
+import { pillarToHanja } from "@/lib/saju-data"
 
 interface UserData {
   id: string
@@ -16,6 +18,14 @@ interface UserData {
   wol_pillar: string
   il_pillar: string
   si_pillar: string | null
+  birth_year: number
+  birth_month: number
+  birth_day: number
+  birth_hour: number | null
+  is_lunar: boolean
+  gender: string
+  ilgan: string
+  daeun_current: string | null
 }
 
 export default function ChatPage() {
@@ -46,12 +56,22 @@ export default function ChatPage() {
       }
 
       const { user: userData, messages: msgData } = await res.json()
-      setUser(userData as UserData)
+      const u = userData as UserData
+      setUser(u)
 
-      const loadedMessages: ChatMessage[] = (msgData ?? []).map((m: { id: string; role: string; content: string }) => ({
+      // 기본 basis (metadata 없는 이전 메시지용 폴백)
+      const fallbackBasis: ChatMessage["basis"] = {
+        ilgan: u.ilgan,
+        ilganChunk: null,
+        pillars: { yeon: u.yeon_pillar, wol: u.wol_pillar, il: u.il_pillar, si: u.si_pillar },
+        daeun: u.daeun_current || null,
+      }
+
+      const loadedMessages: ChatMessage[] = (msgData ?? []).map((m: { id: string; role: string; content: string; metadata?: { basis?: ChatMessage["basis"] } | null }) => ({
         id: m.id,
         role: m.role as "user" | "assistant",
         content: m.content,
+        ...(m.role === "assistant" ? { basis: m.metadata?.basis ?? fallbackBasis } : {}),
       }))
       setMessages(loadedMessages)
 
@@ -126,7 +146,9 @@ export default function ChatPage() {
       })
 
       if (!res.ok) {
-        throw new Error("채팅 요청 실패")
+        const errData = await res.json().catch(() => ({}))
+        console.error("채팅 API 에러:", res.status, errData)
+        throw new Error(errData.error || "채팅 요청 실패")
       }
 
       await readStream(res, updatedMessages)
@@ -149,6 +171,7 @@ export default function ChatPage() {
 
     const decoder = new TextDecoder()
     let assistantContent = ""
+    let basis: ChatMessage["basis"] = undefined
     const assistantId = `assistant-${Date.now()}`
 
     while (true) {
@@ -165,11 +188,34 @@ export default function ChatPage() {
 
         try {
           const parsed = JSON.parse(data)
-          if (parsed.text) {
-            assistantContent += parsed.text
+          if (parsed.meta?.basis) {
+            basis = parsed.meta.basis
+            // 클린 텍스트가 있으면 saju_basis 태그 제거된 버전으로 교체
+            if (parsed.meta.cleanText) {
+              assistantContent = parsed.meta.cleanText
+            }
+            setMessages([
+              ...currentMessages,
+              { id: assistantId, role: "assistant", content: assistantContent, basis },
+            ])
+            continue
+          }
+          if (parsed.error) {
+            console.error("스트리밍 에러:", parsed.error)
+            assistantContent = "미안, 지금 연결에 문제가 생겼어. 잠시 후에 다시 말해줄래?"
             setMessages([
               ...currentMessages,
               { id: assistantId, role: "assistant", content: assistantContent },
+            ])
+            return
+          }
+          if (parsed.text) {
+            assistantContent += parsed.text
+            // 스트리밍 중 <saju_basis> 태그가 보이지 않도록 실시간 제거
+            const displayContent = assistantContent.replace(/<saju_basis[\s\S]*$/, "").trimEnd()
+            setMessages([
+              ...currentMessages,
+              { id: assistantId, role: "assistant", content: displayContent },
             ])
           }
         } catch {
@@ -195,34 +241,54 @@ export default function ChatPage() {
     )
   }
 
+  const sidebarProps = {
+    displayName: user.display_name,
+    sajuSummary: user.saju_summary,
+    pillars: {
+      yeon: user.yeon_pillar,
+      wol: user.wol_pillar,
+      il: user.il_pillar,
+      si: user.si_pillar,
+    },
+    birthYear: user.birth_year,
+    birthMonth: user.birth_month,
+    birthDay: user.birth_day,
+    birthHour: user.birth_hour,
+    isLunar: user.is_lunar,
+    gender: user.gender,
+    ilgan: user.ilgan,
+    daeunCurrent: user.daeun_current,
+    onReset: handleReset,
+  }
+
   return (
-    <div className="flex h-svh">
-      {/* 데스크탑 사이드바 */}
-      <div className="hidden md:block w-[280px] shrink-0">
-        <SajuSidebar
-          sajuSummary={user.saju_summary}
-          displayName={user.display_name}
-          pillars={{
-            yeon: user.yeon_pillar,
-            wol: user.wol_pillar,
-            il: user.il_pillar,
-            si: user.si_pillar,
-          }}
-          onReset={handleReset}
-        />
+    <div className="h-[calc(100svh-49px)]">
+      {/* 데스크탑: Resizable */}
+      <div className="hidden md:block h-full">
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
+          <ResizablePanel defaultSize="25%">
+            <SajuSidebar {...sidebarProps} />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize="75%">
+            <div className="flex h-full flex-col">
+              <MessageList messages={messages} isStreaming={isStreaming} />
+              <MessageInput onSend={handleSend} disabled={isStreaming} />
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
 
-      {/* 메인 채팅 영역 */}
-      <div className="flex flex-1 flex-col min-w-0">
-        {/* 모바일 헤더 */}
-        <div className="md:hidden border-b border-border bg-card/50 px-4 py-3">
+      {/* 모바일: 접히는 헤더 */}
+      <div className="md:hidden flex flex-col h-full">
+        <div className="border-b border-border bg-card/50 px-4 py-3">
           <button
             onClick={() => setMobileInfoOpen(!mobileInfoOpen)}
             className="flex items-center gap-2 w-full"
           >
-            <Star className="h-4 w-4 text-primary" />
+            <span className="text-sm">🔮</span>
             <span className="text-sm font-medium flex-1 text-left truncate">
-              {user.saju_summary || "폴라리스"}
+              {user.saju_summary || "내 명식 보기"}
             </span>
             {mobileInfoOpen ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -232,26 +298,33 @@ export default function ChatPage() {
           </button>
 
           {mobileInfoOpen && (
-            <div className="mt-3 grid grid-cols-4 gap-2 text-center p-2 rounded-lg bg-background/50 border border-border">
-              {[
-                { label: "년주", value: user.yeon_pillar },
-                { label: "월주", value: user.wol_pillar },
-                { label: "일주", value: user.il_pillar },
-                { label: "시주", value: user.si_pillar || "—" },
-              ].map(p => (
-                <div key={p.label} className="space-y-0.5">
-                  <p className="text-[10px] text-muted-foreground">{p.label}</p>
-                  <p className="text-xs font-medium">{p.value}</p>
-                </div>
-              ))}
+            <div className="mt-3 space-y-2">
+              <div className="grid grid-cols-4 gap-2 text-center p-2 rounded-lg bg-background/50 border border-border">
+                {[
+                  { label: "시주", value: user.si_pillar || "—" },
+                  { label: "일주", value: user.il_pillar },
+                  { label: "월주", value: user.wol_pillar },
+                  { label: "년주", value: user.yeon_pillar },
+                ].map(p => (
+                  <div key={p.label} className="space-y-0.5">
+                    <p className="text-[10px] text-muted-foreground">{p.label}</p>
+                    <p className="text-xs font-medium">{p.value}</p>
+                    {p.value !== "—" && (
+                      <p className="text-[10px] font-medium text-primary/70">{pillarToHanja(p.value)}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {user.daeun_current && (
+                <p className="text-xs text-muted-foreground">
+                  🌊 현재 대운: <span className="font-medium text-foreground">{user.daeun_current}</span>
+                </p>
+              )}
             </div>
           )}
         </div>
 
-        {/* 메시지 목록 */}
         <MessageList messages={messages} isStreaming={isStreaming} />
-
-        {/* 입력 */}
         <MessageInput onSend={handleSend} disabled={isStreaming} />
       </div>
     </div>

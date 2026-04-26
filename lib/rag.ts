@@ -32,19 +32,25 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   return response.data[0].embedding
 }
 
-// ─── 일간 특성 검색 (Top-1) ───
+// ─── 사주 지식 검색 (컨텍스트 기반) ───
 
 /**
- * 사용자 일간에 해당하는 일간 특성 chunk를 RAG에서 검색
- * @returns 일간 특성 텍스트 (없으면 빈 문자열)
+ * 사용자 일간 + 대화 내용 기반으로 관련 사주 지식을 RAG에서 검색
+ * @param ilgan 사용자 일간 (예: "병화")
+ * @param userMessage 사용자의 현재 질문/메시지 (없으면 일간 특성만 검색)
+ * @returns 관련 사주 지식 텍스트 배열 (최대 3개)
  */
-export async function searchIlganCharacteristics(ilgan: string): Promise<string> {
+export async function searchSajuKnowledge(ilgan: string, userMessage?: string): Promise<string> {
   if (!process.env.OPENAI_API_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
     return ""
   }
 
   try {
-    const query = `${ilgan} 일간 특성`
+    // 쿼리: 사용자 메시지가 있으면 일간 + 메시지 결합, 없으면 일간 특성만
+    const query = userMessage
+      ? `${ilgan} 사주 ${userMessage}`
+      : `${ilgan} 일간 특성`
+
     const embedding = await generateEmbedding(query)
 
     const { getServerSupabase } = await import("./supabase/server")
@@ -52,19 +58,24 @@ export async function searchIlganCharacteristics(ilgan: string): Promise<string>
 
     const { data, error } = await supabase.rpc("match_saju_knowledge", {
       query_embedding: embedding,
-      match_threshold: 0.3,
-      match_count: 1,
+      match_threshold: 0.25,
+      match_count: 3,
     })
 
     if (error || !data || data.length === 0) {
       return ""
     }
 
-    return data[0].content as string
+    return (data as Array<{ content: string }>).map(d => d.content).join("\n\n---\n\n")
   } catch (error) {
     console.error("RAG 검색 실패:", error)
     return ""
   }
+}
+
+/** @deprecated searchSajuKnowledge 사용 권장 */
+export async function searchIlganCharacteristics(ilgan: string): Promise<string> {
+  return searchSajuKnowledge(ilgan)
 }
 
 // ─── 청킹 유틸 (임베딩 스크립트용) ───

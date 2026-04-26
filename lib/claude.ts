@@ -17,7 +17,7 @@ function getClient(): Anthropic {
   return client
 }
 
-const MODEL = "claude-sonnet-4-5-20250514"
+const MODEL = "claude-opus-4-7"
 
 // ─── 스트리밍 채팅 ───
 

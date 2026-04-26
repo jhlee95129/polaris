@@ -1,5 +1,5 @@
 /**
- * ilgan-characteristics.md → 청킹 → OpenAI 임베딩 → Supabase pgvector 저장
+ * 사주 지식 파일 전체 → 청킹 → OpenAI 임베딩 → Supabase pgvector 저장
  *
  * 실행: npx tsx scripts/embed-knowledge.ts
  *
@@ -9,7 +9,7 @@
  * - SUPABASE_SECRET_KEY
  */
 
-import { readFileSync } from "fs"
+import { readFileSync, readdirSync } from "fs"
 import { join } from "path"
 import OpenAI from "openai"
 import { createClient } from "@supabase/supabase-js"
@@ -38,12 +38,9 @@ async function main() {
   console.log("기존 데이터 삭제 중...")
   await supabase.from("saju_knowledge").delete().neq("id", "00000000-0000-0000-0000-000000000000")
 
-  // ilgan-characteristics.md만 처리 (SPEC 5-3)
-  const filePath = join(KNOWLEDGE_DIR, "ilgan-characteristics.md")
-  const content = readFileSync(filePath, "utf-8")
-  const chunks = chunkByHeaders(content, "ilgan-characteristics")
-
-  console.log(`${chunks.length}개 일간 청크 발견`)
+  // 모든 .md 파일 처리
+  const files = readdirSync(KNOWLEDGE_DIR).filter(f => f.endsWith(".md"))
+  console.log(`${files.length}개 지식 파일 발견: ${files.join(", ")}`)
 
   const rows: Array<{
     source_file: string
@@ -52,25 +49,34 @@ async function main() {
     metadata: Record<string, string>
   }> = []
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i]
-    console.log(`  [${i + 1}/${chunks.length}] 임베딩 생성: ${chunk.metadata.ilgan || "?"}`)
+  for (const file of files) {
+    const filePath = join(KNOWLEDGE_DIR, file)
+    const content = readFileSync(filePath, "utf-8")
+    const sourceFile = file.replace(".md", "")
+    const chunks = chunkByHeaders(content, sourceFile)
 
-    const embeddingResponse = await openai.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: chunk.content,
-      dimensions: 2000,
-    })
+    console.log(`\n[${file}] ${chunks.length}개 청크 발견`)
 
-    rows.push({
-      source_file: chunk.sourceFile,
-      content: chunk.content,
-      embedding: embeddingResponse.data[0].embedding,
-      metadata: chunk.metadata,
-    })
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]
+      console.log(`  [${i + 1}/${chunks.length}] 임베딩 생성: ${chunk.metadata.ilgan || chunk.content.slice(3, 30)}...`)
 
-    // Rate limiting
-    await sleep(200)
+      const embeddingResponse = await openai.embeddings.create({
+        model: EMBEDDING_MODEL,
+        input: chunk.content,
+        dimensions: 2000,
+      })
+
+      rows.push({
+        source_file: chunk.sourceFile,
+        content: chunk.content,
+        embedding: embeddingResponse.data[0].embedding,
+        metadata: chunk.metadata,
+      })
+
+      // Rate limiting
+      await sleep(200)
+    }
   }
 
   // Supabase에 저장
