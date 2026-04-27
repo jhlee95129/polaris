@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { calculateSajuProfile, generateSajuContext, type BirthInfo } from "@/lib/saju"
 import { STEM_MAP } from "@/lib/saju-data"
 import { generateText } from "@/lib/claude"
-import { createUser } from "@/lib/db/queries"
+import { createUser, getUserByDisplayName } from "@/lib/db/queries"
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
       birth_day,
       birth_hour,
       is_lunar,
+      is_leap_month,
       gender,
     } = body as {
       display_name?: string
@@ -22,7 +23,23 @@ export async function POST(request: NextRequest) {
       birth_day: number
       birth_hour?: number
       is_lunar?: boolean
+      is_leap_month?: boolean
       gender: "male" | "female"
+    }
+
+    // 닉네임 필수 + 중복 체크
+    if (!display_name || display_name.trim().length === 0) {
+      return NextResponse.json(
+        { error: "닉네임은 필수입니다" },
+        { status: 400 }
+      )
+    }
+    const existing = await getUserByDisplayName(display_name.trim())
+    if (existing) {
+      return NextResponse.json(
+        { error: "이미 사용 중인 닉네임이에요. 다른 닉네임을 선택해주세요." },
+        { status: 409 }
+      )
     }
 
     // 입력 검증
@@ -52,6 +69,7 @@ export async function POST(request: NextRequest) {
       day: birth_day,
       hour: birth_hour ?? undefined,
       isLunar: is_lunar ?? false,
+      isLeapMonth: is_leap_month ?? false,
       gender: gender === "male" ? "M" : "F",
     }
     const profile = calculateSajuProfile(birthInfo)
@@ -85,6 +103,7 @@ export async function POST(request: NextRequest) {
       birth_day,
       birth_hour: birth_hour ?? null,
       is_lunar: is_lunar ?? false,
+      is_leap_month: is_leap_month ?? false,
       gender,
       ilgan: ilganName,
       yeon_pillar: yeonPillar,

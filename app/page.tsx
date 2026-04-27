@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { getUserId, setPendingTopic } from "@/lib/storage"
+import { getUserId, setUserId, setPendingTopic } from "@/lib/storage"
 import {
   Star,
   ArrowRight,
@@ -286,15 +286,43 @@ export default function LandingPage() {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [hasUser, setHasUser] = useState(false)
+  const [nicknameInput, setNicknameInput] = useState("")
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupError, setLookupError] = useState("")
 
   useEffect(() => {
-    setHasUser(!!getUserId())
+    const uid = getUserId()
+    if (uid) {
+      router.replace("/dashboard")
+      return
+    }
+    setHasUser(false)
     setMounted(true)
-  }, [])
+  }, [router])
 
   function handleTopicClick(message: string) {
     if (message) setPendingTopic(message)
     router.push(hasUser ? "/chat" : "/onboarding")
+  }
+
+  async function handleNicknameLogin() {
+    const name = nicknameInput.trim()
+    if (!name) return
+    setLookupLoading(true)
+    setLookupError("")
+    try {
+      const res = await fetch(`/api/user/lookup?name=${encodeURIComponent(name)}`)
+      const data = await res.json()
+      if (data.found) {
+        setUserId(data.user_id)
+        router.push("/dashboard")
+      } else {
+        router.push(`/onboarding?nickname=${encodeURIComponent(name)}`)
+      }
+    } catch {
+      setLookupError("연결에 실패했어요. 다시 시도해주세요.")
+    }
+    setLookupLoading(false)
   }
 
   if (!mounted) {
@@ -356,21 +384,33 @@ export default function LandingPage() {
             }
           </p>
 
-          {/* CTA */}
+          {/* CTA — 닉네임 입력 */}
           <div className="mt-8 w-full max-w-xs space-y-3">
-            <Button
-              size="lg"
-              className="w-full text-base shadow-md shadow-primary/20"
-              onClick={() => router.push(hasUser ? "/chat" : "/onboarding")}
-            >
-              {hasUser ? "대화 이어가기" : "사주 상담 시작하기"}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-            {!hasUser && (
-              <p className="text-xs text-muted-foreground">
-                생년월일만 입력하면 1분 안에 시작
-              </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="닉네임을 입력하세요"
+                value={nicknameInput}
+                onChange={e => setNicknameInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleNicknameLogin()}
+                className="flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <Button
+                size="lg"
+                className="shrink-0 shadow-md shadow-primary/20"
+                onClick={handleNicknameLogin}
+                disabled={lookupLoading || !nicknameInput.trim()}
+              >
+                {lookupLoading ? "..." : "시작"}
+                {!lookupLoading && <ArrowRight className="ml-1 h-4 w-4" />}
+              </Button>
+            </div>
+            {lookupError && (
+              <p className="text-xs text-destructive">{lookupError}</p>
             )}
+            <p className="text-xs text-muted-foreground">
+              기존 닉네임이면 바로 로그인, 처음이면 간편 가입
+            </p>
           </div>
 
           {/* 스크롤 유도 */}
@@ -583,19 +623,27 @@ export default function LandingPage() {
 
           <section className="py-10 text-center">
             <p className="text-sm text-muted-foreground">
-              {hasUser
-                ? "네 사주를 기억하고 있어. 이어서 얘기하자."
-                : "생년월일만 알려주면 바로 시작할 수 있어."
-              }
+              닉네임만 입력하면 바로 시작할 수 있어.
             </p>
-            <Button
-              size="lg"
-              className="mt-4 w-full max-w-xs text-base shadow-md shadow-primary/20"
-              onClick={() => router.push(hasUser ? "/chat" : "/onboarding")}
-            >
-              {hasUser ? "대화 이어가기" : "사주 상담 시작하기"}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="mx-auto mt-4 flex max-w-xs gap-2">
+              <input
+                type="text"
+                placeholder="닉네임"
+                value={nicknameInput}
+                onChange={e => setNicknameInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleNicknameLogin()}
+                className="flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <Button
+                size="lg"
+                className="shrink-0 shadow-md shadow-primary/20"
+                onClick={handleNicknameLogin}
+                disabled={lookupLoading || !nicknameInput.trim()}
+              >
+                시작
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
           </section>
         </div>
       </div>

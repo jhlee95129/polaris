@@ -4,6 +4,7 @@ import { Geist_Mono, Black_Han_Sans } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import GlobalHeader from "@/components/nav/global-header"
+import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 
 const fontMono = Geist_Mono({
@@ -52,6 +53,7 @@ export default function RootLayout({
         <ThemeProvider>
           <GlobalHeader />
           {children}
+          <Toaster richColors position="top-center" />
         </ThemeProvider>
       </body>
     </html>

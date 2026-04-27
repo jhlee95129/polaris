@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   // 사용자 데이터
   const { data: userData, error: userError } = await supabase
     .from("users")
-    .select("id, display_name, saju_summary, yeon_pillar, wol_pillar, il_pillar, si_pillar, birth_year, birth_month, birth_day, birth_hour, is_lunar, gender, ilgan, daeun_current, created_at")
+    .select("id, display_name, saju_summary, yeon_pillar, wol_pillar, il_pillar, si_pillar, birth_year, birth_month, birth_day, birth_hour, is_lunar, gender, ilgan, daeun_current, created_at, bokjumoni_count, last_checkin_date")
     .eq("id", userId)
     .single()
 

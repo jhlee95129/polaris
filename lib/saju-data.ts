@@ -297,6 +297,22 @@ export const ELEMENT_BG: Record<Element, string> = {
   수: "bg-blue-500/10",
 }
 
+export const ELEMENT_EMOJI: Record<Element, string> = {
+  목: "🌳",
+  화: "🔥",
+  토: "⛰️",
+  금: "💎",
+  수: "💧",
+}
+
+export const PILLAR_EMOJI: Record<string, string> = {
+  년주: "⛰️",
+  월주: "🌙",
+  일주: "☀️",
+  시주: "⏰",
+  대운: "🌊",
+}
+
 /**
  * 일간 한글(예: "갑") → 오행 Element 반환
  */

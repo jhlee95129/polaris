@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react"
 import MessageBubble from "./MessageBubble"
-import { Star } from "lucide-react"
 
 export interface BasisData {
   ilgan: string
@@ -40,17 +39,22 @@ export default function MessageList({ messages, isStreaming, ilgan }: MessageLis
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        {messages.map(msg => (
-          <MessageBubble key={msg.id} role={msg.role} content={msg.content} basis={msg.basis} ilgan={ilgan} />
+        {messages.map((msg, idx) => (
+          <MessageBubble
+            key={`${msg.id}-${idx}`}
+            role={msg.role}
+            content={msg.content}
+            basis={msg.basis}
+            ilgan={ilgan}
+            isStreaming={isStreaming && idx === messages.length - 1 && msg.role === "assistant"}
+          />
         ))}
 
         {/* 스트리밍 인디케이터 */}
         {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex justify-start">
             <div className="flex items-end gap-2">
-              <span className="shrink-0 mb-0.5 text-primary">
-                <Star className="h-5 w-5" />
-              </span>
+              <span className="shrink-0 mb-0.5 text-base leading-none">⭐</span>
               <div className="rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-1">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40" style={{ animationDelay: "0ms" }} />

@@ -37,6 +37,7 @@
     --color-card-foreground: var(--card-foreground);
     --color-card: var(--card);
     --color-foreground: var(--foreground);
+    --color-surface-dim: var(--surface-dim);
     --color-background: var(--background);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
@@ -74,6 +75,9 @@
     --chart-5: oklch(0.50 0.10 200);
     --radius: 0.75rem;
 
+    /* 상담 페이지 전용: 헤더+사이드바 공유 서페이스 */
+    --surface-dim: oklch(0.94 0.015 280);
+
     --sidebar: oklch(0.97 0.01 75);
     --sidebar-foreground: oklch(0.18 0.02 280);
     --sidebar-primary: oklch(0.40 0.12 280);
@@ -108,6 +112,8 @@
     --chart-3: oklch(0.55 0.12 150);
     --chart-4: oklch(0.60 0.15 25);
     --chart-5: oklch(0.50 0.10 200);
+
+    --surface-dim: oklch(0.16 0.03 280);
 
     --sidebar: oklch(0.19 0.02 280);
     --sidebar-foreground: oklch(0.95 0.01 75);
@@ -191,4 +197,87 @@
   50%  { transform: translate(-4px, -14px); }
   75%  { transform: translate(-8px, -4px); }
   100% { transform: translate(0, 0); }
+}
+
+/* ── 온보딩 마이크로인터랙션 ── */
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.40 0.12 280 / 0.25); }
+  50% { box-shadow: 0 0 0 8px oklch(0.40 0.12 280 / 0); }
+}
+
+.dark .animate-pulse-glow {
+  animation: pulseGlowDark 2s ease-in-out infinite;
+}
+@keyframes pulseGlowDark {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.78 0.12 75 / 0.25); }
+  50% { box-shadow: 0 0 0 8px oklch(0.78 0.12 75 / 0); }
+}
+
+@keyframes checkmark {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(2px); }
+}
+
+@keyframes cosmicOrbit {
+  from { transform: rotate(0deg) translateX(var(--orbit-r, 48px)) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(var(--orbit-r, 48px)) rotate(-360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes loadingTextSwap {
+  0%, 100% { opacity: 0; transform: translateY(6px); }
+  15%, 85% { opacity: 1; transform: translateY(0); }
+}
+
+/* 윤달 행 높이 애니메이션 */
+.leap-month-container {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 300ms ease-out, opacity 300ms ease-out;
+}
+.leap-month-container.visible {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.leap-month-container > div {
+  overflow: hidden;
+}
+
+/* 온보딩 인풋 포커스 글로우 */
+.onboarding-input:focus-within {
+  box-shadow: 0 0 0 4px oklch(0.40 0.12 280 / 0.12);
+  border-color: oklch(0.50 0.10 280);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+.dark .onboarding-input:focus-within {
+  box-shadow: 0 0 0 4px oklch(0.60 0.10 280 / 0.15);
+  border-color: oklch(0.60 0.10 280);
+}
+
+/* 궤도 점 (로딩 화면) */
+.orbit-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--dot-size, 4px);
+  height: var(--dot-size, 4px);
+  margin: calc(var(--dot-size, 4px) / -2);
+  border-radius: 50%;
+  background: currentColor;
+  animation: cosmicOrbit var(--orbit-dur, 8s) linear infinite;
 }

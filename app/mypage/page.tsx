@@ -9,9 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Separator } from "@/components/ui/separator"
-import { Trash2, Calendar, User as UserIcon, Pencil, X, Loader2 } from "lucide-react"
-import { pillarToHanja, getSiLabel } from "@/lib/saju-data"
+import { pillarToHanja, getSiLabel, STEM_MAP, BRANCH_MAP, ELEMENTS, ELEMENT_COLORS, ELEMENT_BG, ELEMENT_EMOJI, TEN_GOD_MAP, getIlganElement, type Element, type TenGodKey } from "@/lib/saju-data"
 
 const HOURS = [
   { value: "-1", label: "모르겠어요" },
@@ -48,10 +46,34 @@ interface FullUserData {
   created_at: string
 }
 
+interface SajuProfileData {
+  dayStem: string
+  dayStemDescription: string
+  dayStemPersonality: string
+  elementCounts: Record<Element, number>
+  dominantElement: Element
+  weakestElement: Element
+  usefulGod: Element
+  usefulGodReason: string
+  dominantTenGods: TenGodKey[]
+  todayPillar: { pillar: string; pillarHanja: string; stemElement: Element; branchElement: Element } | null
+  todayInteraction: string | null
+  yearAnimal: string | null
+}
+
+// 토픽별 관련 십신 매핑
+const TOPIC_TEN_GODS: { emoji: string; label: string; tenGods: TenGodKey[]; description: string }[] = [
+  { emoji: "💼", label: "직업·진로", tenGods: ["정관", "편관", "식신", "상관"], description: "직업과 사회적 역할에 영향을 주는 십신입니다" },
+  { emoji: "💰", label: "재정·금전", tenGods: ["정재", "편재"], description: "재물 운과 경제 활동에 영향을 주는 십신입니다" },
+  { emoji: "🤝", label: "인간관계", tenGods: ["비견", "겁재"], description: "대인관계와 사회적 교류에 영향을 주는 십신입니다" },
+  { emoji: "📚", label: "학업·성장", tenGods: ["정인", "편인"], description: "배움과 지적 성장에 영향을 주는 십신입니다" },
+]
+
 export default function MyPage() {
   const router = useRouter()
   const [user, setUser] = useState<FullUserData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<SajuProfileData | null>(null)
 
   // 편집 모드
   const [editing, setEditing] = useState(false)
@@ -78,7 +100,14 @@ export default function MyPage() {
         if (!res.ok) throw new Error()
         return res.json()
       })
-      .then(data => setUser(data.user))
+      .then(data => {
+        setUser(data.user)
+        // 사주 프로필 fetch
+        fetch(`/api/saju-profile?user_id=${id}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(p => p && setProfile(p))
+          .catch(() => {})
+      })
       .catch(() => router.replace("/onboarding"))
       .finally(() => setLoading(false))
   }, [router])
@@ -140,6 +169,11 @@ export default function MyPage() {
       const data = await res.json()
       setUser(data.user)
       setEditing(false)
+      // 사주 프로필 새로고침
+      fetch(`/api/saju-profile?user_id=${user.id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(p => p && setProfile(p))
+        .catch(() => {})
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다")
     } finally {
@@ -186,45 +220,318 @@ export default function MyPage() {
         )}
       </div>
 
+      {/* 일간 특성 */}
+      {user.ilgan && (() => {
+        const dayStem = user.ilgan[0]
+        const stemInfo = dayStem ? STEM_MAP[dayStem] : null
+        const element = getIlganElement(user.ilgan)
+        const avatarEmoji = element ? ELEMENT_EMOJI[element] : "👤"
+        const elementInfo = element ? ELEMENTS[element] : null
+
+        return stemInfo ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">일간 특성</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10">
+                <div className="h-12 w-12 rounded-full bg-background flex items-center justify-center border-2 border-primary/20 text-2xl">
+                  {avatarEmoji}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-2xl font-bold ${ELEMENT_COLORS[stemInfo.element]}`}>{stemInfo.hanja}</span>
+                    <span className="text-base font-medium">{user.ilgan}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${ELEMENT_BG[stemInfo.element]} ${ELEMENT_COLORS[stemInfo.element]}`}>
+                      {ELEMENTS[stemInfo.element].name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{stemInfo.yinYang}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{stemInfo.description}</p>
+                </div>
+              </div>
+              {elementInfo && (
+                <div className={`rounded-xl p-4 ${ELEMENT_BG[stemInfo.element]} border border-current/10`}>
+                  <p className={`text-sm font-medium ${ELEMENT_COLORS[stemInfo.element]} mb-1`}>{elementInfo.name} ({stemInfo.element})</p>
+                  <p className="text-sm text-muted-foreground">{elementInfo.nature}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : null
+      })()}
+
       {/* 사주 4기둥 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">내 명식</CardTitle>
+          <CardTitle className="text-base">사주 명식</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-4 gap-3 text-center">
-            {pillars.map(p => (
-              <div key={p.label} className="rounded-lg border border-border bg-background p-3 space-y-1">
-                <p className="text-[11px] text-muted-foreground">{p.label}</p>
-                <p className="text-lg font-semibold">{p.value}</p>
-                {p.value !== "—" && (
-                  <p className="text-sm font-medium text-primary/70">{pillarToHanja(p.value)}</p>
-                )}
-              </div>
-            ))}
+            {pillars.map(p => {
+              if (p.value === "—") {
+                return (
+                  <div key={p.label} className="rounded-lg border border-border bg-background p-3 space-y-1">
+                    <p className="text-[11px] text-muted-foreground">{p.label}</p>
+                    <p className="text-lg text-muted-foreground">—</p>
+                  </div>
+                )
+              }
+              const stem = STEM_MAP[p.value[0]]
+              const branch = BRANCH_MAP[p.value[1]]
+              if (!stem || !branch) return null
+              return (
+                <div key={p.label} className="rounded-lg border border-border bg-background p-3 space-y-1">
+                  <p className="text-[11px] text-muted-foreground">{p.label}</p>
+                  <div>
+                    <span className={`text-xl font-bold ${ELEMENT_COLORS[stem.element]}`}>{stem.hanja}</span>
+                    <span className={`text-xs ml-0.5 ${ELEMENT_COLORS[stem.element]}`}>{stem.hangul}</span>
+                  </div>
+                  <div>
+                    <span className={`text-xl font-bold ${ELEMENT_COLORS[branch.element]}`}>{branch.hanja}</span>
+                    <span className={`text-xs ml-0.5 ${ELEMENT_COLORS[branch.element]}`}>{branch.hangul}</span>
+                  </div>
+                  <div className="flex justify-center gap-1 pt-1">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${ELEMENT_BG[stem.element]} ${ELEMENT_COLORS[stem.element]}`}>{stem.element}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${ELEMENT_BG[branch.element]} ${ELEMENT_COLORS[branch.element]}`}>{branch.element}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
-          {(user.ilgan || user.daeun_current) && (
-            <>
-              <Separator className="my-4" />
-              <div className="flex gap-6 text-sm">
-                {user.ilgan && (
-                  <div>
-                    <span className="text-muted-foreground">일간: </span>
-                    <span className="font-medium text-primary">{user.ilgan}</span>
+          {/* 현재 대운 */}
+          {user.daeun_current && (() => {
+            const dStem = STEM_MAP[user.daeun_current[0]]
+            return (
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background/50">
+                <span className="text-base shrink-0">🌊</span>
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground">현재 대운</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-base font-medium">{user.daeun_current}</span>
+                    <span className="text-sm text-muted-foreground">{pillarToHanja(user.daeun_current)}</span>
+                    {dStem && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${ELEMENT_BG[dStem.element]} ${ELEMENT_COLORS[dStem.element]}`}>
+                        {dStem.element}
+                      </span>
+                    )}
                   </div>
-                )}
-                {user.daeun_current && (
-                  <div>
-                    <span className="text-muted-foreground">현재 대운: </span>
-                    <span className="font-medium">{user.daeun_current}</span>
-                  </div>
-                )}
+                </div>
               </div>
-            </>
-          )}
+            )
+          })()}
         </CardContent>
       </Card>
+
+      {/* ── 사주 리포트 ── */}
+      {profile && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-bold flex items-center gap-2">📋 사주 리포트</h2>
+
+          {/* 성격·기질 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">🧬 성격·기질</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-xl bg-primary/5 border border-primary/10 p-4">
+                <p className="text-sm font-medium mb-1">
+                  {profile.dayStem} — {profile.dayStemDescription}
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {profile.dayStemPersonality}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 오행 분포 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">🔥 오행 분포</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 바 차트 */}
+              <div className="space-y-2.5">
+                {(["목", "화", "토", "금", "수"] as Element[]).map(el => {
+                  const count = profile.elementCounts[el] || 0
+                  const maxCount = Math.max(...Object.values(profile.elementCounts), 1)
+                  const pct = (count / maxCount) * 100
+                  return (
+                    <div key={el} className="flex items-center gap-3">
+                      <span className="text-base w-6 text-center">{ELEMENT_EMOJI[el]}</span>
+                      <span className={`text-xs font-medium w-16 ${ELEMENT_COLORS[el]}`}>
+                        {ELEMENTS[el].name}
+                      </span>
+                      <div className="flex-1 h-5 bg-muted/50 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${ELEMENT_BG[el]} border ${
+                            el === profile.dominantElement ? "border-current/30" : "border-transparent"
+                          }`}
+                          style={{ width: `${Math.max(pct, 8)}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-muted-foreground w-4 text-right">{count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* 강한/약한 오행 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`rounded-xl p-3 ${ELEMENT_BG[profile.dominantElement]} border border-current/10`}>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">가장 강한 오행</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{ELEMENT_EMOJI[profile.dominantElement]}</span>
+                    <div>
+                      <p className={`text-sm font-bold ${ELEMENT_COLORS[profile.dominantElement]}`}>
+                        {ELEMENTS[profile.dominantElement].name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{ELEMENTS[profile.dominantElement].nature}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className={`rounded-xl p-3 ${ELEMENT_BG[profile.weakestElement]} border border-current/10`}>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">가장 약한 오행</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{ELEMENT_EMOJI[profile.weakestElement]}</span>
+                    <div>
+                      <p className={`text-sm font-bold ${ELEMENT_COLORS[profile.weakestElement]}`}>
+                        {ELEMENTS[profile.weakestElement].name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{ELEMENTS[profile.weakestElement].nature}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 용신 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">⭐ 용신 (보완 오행)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className={`rounded-xl p-4 ${ELEMENT_BG[profile.usefulGod]} border border-current/10`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">{ELEMENT_EMOJI[profile.usefulGod]}</span>
+                  <div>
+                    <p className={`text-base font-bold ${ELEMENT_COLORS[profile.usefulGod]}`}>
+                      {ELEMENTS[profile.usefulGod].name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{ELEMENTS[profile.usefulGod].nature}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">{profile.usefulGodReason}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border">
+                  <span>🎨</span>
+                  <span>행운 색상: {ELEMENTS[profile.usefulGod].color}</span>
+                </div>
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border">
+                  <span>🧭</span>
+                  <span>행운 방향: {ELEMENTS[profile.usefulGod].direction}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 토픽별 십신 분석 (직업, 재정, 인간관계, 학업) */}
+          {TOPIC_TEN_GODS.map(topic => (
+            <Card key={topic.label}>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  {topic.emoji} {topic.label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-muted-foreground">{topic.description}</p>
+                <div className="space-y-2.5">
+                  {topic.tenGods.map(tgName => {
+                    const tg = TEN_GOD_MAP[tgName]
+                    if (!tg) return null
+                    const isDominant = profile.dominantTenGods.includes(tgName)
+                    return (
+                      <div
+                        key={tgName}
+                        className={`rounded-xl border p-3.5 ${
+                          isDominant
+                            ? "border-primary/30 bg-primary/5"
+                            : "border-border bg-background"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold">{tg.name}</span>
+                            <span className="text-xs text-muted-foreground">{tg.hanja}</span>
+                            {isDominant && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                                내 사주에 강함
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {tg.keywords.map(kw => (
+                            <span key={kw} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <p className="text-green-600 dark:text-green-400 mb-0.5 font-medium">👍 강점</p>
+                            <p className="text-muted-foreground">{tg.positive}</p>
+                          </div>
+                          <div>
+                            <p className="text-amber-600 dark:text-amber-400 mb-0.5 font-medium">⚠️ 주의</p>
+                            <p className="text-muted-foreground">{tg.negative}</p>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-2">
+                          📌 영향 분야: {tg.lifeArea}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* 오늘의 운세 */}
+          {profile.todayPillar && profile.todayInteraction && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">📅 오늘의 운세</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-background/50">
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">오늘 일진</p>
+                    <p className="text-lg font-bold">{profile.todayPillar.pillar}</p>
+                    <p className="text-xs text-muted-foreground">{profile.todayPillar.pillarHanja}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${ELEMENT_BG[profile.todayPillar.stemElement]} ${ELEMENT_COLORS[profile.todayPillar.stemElement]}`}>
+                      {ELEMENT_EMOJI[profile.todayPillar.stemElement]} {profile.todayPillar.stemElement}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${ELEMENT_BG[profile.todayPillar.branchElement]} ${ELEMENT_COLORS[profile.todayPillar.branchElement]}`}>
+                      {ELEMENT_EMOJI[profile.todayPillar.branchElement]} {profile.todayPillar.branchElement}
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-primary/5 border border-primary/10 p-4">
+                  <p className="text-sm leading-relaxed">{profile.todayInteraction}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* 기본 정보 — 보기/편집 모드 */}
       <Card>
@@ -232,8 +539,7 @@ export default function MyPage() {
           <CardTitle className="text-base">기본 정보</CardTitle>
           {!editing && (
             <Button variant="ghost" size="sm" onClick={startEditing} className="text-muted-foreground hover:text-foreground">
-              <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              수정
+              ✏️ 수정
             </Button>
           )}
         </CardHeader>
@@ -342,13 +648,12 @@ export default function MyPage() {
               {/* 저장/취소 버튼 */}
               <div className="flex gap-3 pt-1">
                 <Button variant="outline" onClick={cancelEditing} disabled={saving} className="flex-1">
-                  <X className="h-4 w-4 mr-1.5" />
-                  취소
+                  ❌ 취소
                 </Button>
                 <Button onClick={handleSave} disabled={saving || !canSave()} className="flex-1">
                   {saving ? (
                     <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                       사주 재계산 중...
                     </span>
                   ) : (
@@ -360,7 +665,7 @@ export default function MyPage() {
           ) : (
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-base">📅</span>
                 <span>
                   {user.birth_year}년 {user.birth_month}월 {user.birth_day}일
                   <span className="ml-1.5 text-muted-foreground">
@@ -370,14 +675,14 @@ export default function MyPage() {
               </div>
               {user.birth_hour !== null && user.birth_hour >= 0 && (
                 <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-base">⏰</span>
                   <span>
                     태어난 시: {user.si_pillar ? getSiLabel(user.si_pillar) : `${user.birth_hour}시`}
                   </span>
                 </div>
               )}
               <div className="flex items-center gap-3 text-sm">
-                <UserIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-base">👤</span>
                 <span>{user.gender === "male" ? "남성" : "여성"}</span>
               </div>
             </div>
@@ -392,8 +697,7 @@ export default function MyPage() {
           className="text-muted-foreground hover:text-destructive"
           onClick={handleReset}
         >
-          <Trash2 className="h-4 w-4 mr-2" />
-          기억을 지우고 새로 시작
+          🗑️ 기억을 지우고 새로 시작
         </Button>
       </div>
     </div>

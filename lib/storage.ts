@@ -17,50 +17,8 @@ export function setUserId(id: string): void {
 export function clearUser(): void {
   if (typeof window === "undefined") return
   localStorage.removeItem(POLARIS_USER_KEY)
-  localStorage.removeItem(POLARIS_ENERGY_KEY)
-  sessionStorage.removeItem(CURRENT_SESSION_KEY)
+  localStorage.removeItem(CURRENT_SESSION_KEY)
 }
-
-// ─── 복채 시스템 ───
-
-const POLARIS_ENERGY_KEY = "polaris_energy"
-const MAX_ENERGY = 3
-
-interface EnergyState {
-  count: number
-  lastResetDate: string
-}
-
-function getTodayString(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-export function getEnergy(): EnergyState {
-  if (typeof window === "undefined") return { count: MAX_ENERGY, lastResetDate: getTodayString() }
-  const raw = localStorage.getItem(POLARIS_ENERGY_KEY)
-  if (!raw) {
-    const initial: EnergyState = { count: MAX_ENERGY, lastResetDate: getTodayString() }
-    localStorage.setItem(POLARIS_ENERGY_KEY, JSON.stringify(initial))
-    return initial
-  }
-  const state: EnergyState = JSON.parse(raw)
-  if (state.lastResetDate !== getTodayString()) {
-    const reset: EnergyState = { count: MAX_ENERGY, lastResetDate: getTodayString() }
-    localStorage.setItem(POLARIS_ENERGY_KEY, JSON.stringify(reset))
-    return reset
-  }
-  return state
-}
-
-export function useEnergy(): boolean {
-  const state = getEnergy()
-  if (state.count <= 0) return false
-  const updated: EnergyState = { ...state, count: state.count - 1 }
-  localStorage.setItem(POLARIS_ENERGY_KEY, JSON.stringify(updated))
-  return true
-}
-
-export { MAX_ENERGY }
 
 // ─── 세션 관리 ───
 
@@ -68,17 +26,17 @@ const CURRENT_SESSION_KEY = "polaris_current_session_id"
 
 export function getCurrentSessionId(): string | null {
   if (typeof window === "undefined") return null
-  return sessionStorage.getItem(CURRENT_SESSION_KEY)
+  return localStorage.getItem(CURRENT_SESSION_KEY)
 }
 
 export function setCurrentSessionId(id: string): void {
   if (typeof window === "undefined") return
-  sessionStorage.setItem(CURRENT_SESSION_KEY, id)
+  localStorage.setItem(CURRENT_SESSION_KEY, id)
 }
 
 export function clearCurrentSession(): void {
   if (typeof window === "undefined") return
-  sessionStorage.removeItem(CURRENT_SESSION_KEY)
+  localStorage.removeItem(CURRENT_SESSION_KEY)
 }
 
 // ─── 주제 카드 → 채팅 연결 ───

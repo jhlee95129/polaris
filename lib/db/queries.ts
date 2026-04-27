@@ -15,6 +15,7 @@ export interface UserRow {
   birth_day: number
   birth_hour: number | null
   is_lunar: boolean
+  is_leap_month: boolean
   gender: string
   ilgan: string
   yeon_pillar: string
@@ -23,6 +24,8 @@ export interface UserRow {
   si_pillar: string | null
   daeun_current: string | null
   saju_summary: string | null
+  bokjumoni_count: number
+  last_checkin_date: string | null
 }
 
 export interface MessageRow {
@@ -46,7 +49,7 @@ export interface SessionRow {
 // ─── Users ───
 
 export async function createUser(
-  data: Omit<UserRow, "id" | "created_at">
+  data: Omit<UserRow, "id" | "created_at" | "bokjumoni_count" | "last_checkin_date">
 ): Promise<UserRow> {
   const supabase = getServerSupabase()
   const { data: user, error } = await supabase
@@ -85,6 +88,88 @@ export async function getUser(id: string): Promise<UserRow | null> {
 
   if (error) return null
   return data as UserRow
+}
+
+export async function getUserByDisplayName(displayName: string): Promise<UserRow | null> {
+  const supabase = getServerSupabase()
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .eq("display_name", displayName)
+    .single()
+
+  if (error) return null
+  return data as UserRow
+}
+
+// ─── 복주머니 ──���
+
+export async function consumeBokjumoni(userId: string): Promise<number> {
+  const supabase = getServerSupabase()
+  const { data: current } = await supabase
+    .from("users")
+    .select("bokjumoni_count")
+    .eq("id", userId)
+    .single()
+
+  if (!current || current.bokjumoni_count <= 0) {
+    throw new Error("복주머니가 부족합니다")
+  }
+
+  const newCount = current.bokjumoni_count - 1
+  const { error } = await supabase
+    .from("users")
+    .update({ bokjumoni_count: newCount })
+    .eq("id", userId)
+
+  if (error) throw new Error(`복주머니 차감 실패: ${error.message}`)
+  return newCount
+}
+
+export async function checkinBokjumoni(userId: string): Promise<{ added: boolean; count: number }> {
+  const supabase = getServerSupabase()
+  const today = new Date().toISOString().slice(0, 10)
+
+  const { data: current } = await supabase
+    .from("users")
+    .select("bokjumoni_count, last_checkin_date")
+    .eq("id", userId)
+    .single()
+
+  if (!current) throw new Error("사용자를 찾을 수 없습니다")
+
+  if (current.last_checkin_date === today) {
+    return { added: false, count: current.bokjumoni_count }
+  }
+
+  const newCount = current.bokjumoni_count + 1
+  const { error } = await supabase
+    .from("users")
+    .update({ bokjumoni_count: newCount, last_checkin_date: today })
+    .eq("id", userId)
+
+  if (error) throw new Error(`체크인 실패: ${error.message}`)
+  return { added: true, count: newCount }
+}
+
+export async function addBokjumoni(userId: string, amount: number): Promise<number> {
+  const supabase = getServerSupabase()
+  const { data: current } = await supabase
+    .from("users")
+    .select("bokjumoni_count")
+    .eq("id", userId)
+    .single()
+
+  if (!current) throw new Error("사용자를 찾을 수 없습니다")
+
+  const newCount = current.bokjumoni_count + amount
+  const { error } = await supabase
+    .from("users")
+    .update({ bokjumoni_count: newCount })
+    .eq("id", userId)
+
+  if (error) throw new Error(`복주머니 충전 실패: ${error.message}`)
+  return newCount
 }
 
 // ─── Sessions ───

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { streamChat } from "@/lib/claude"
 import { buildSystemPrompt, buildUserContextBlock } from "@/lib/prompts"
-import { getUser, getSessionMessages, getRecentMessages, saveMessage, updateSessionTitle } from "@/lib/db/queries"
+import { getUser, getSessionMessages, getRecentMessages, saveMessage, updateSessionTitle, consumeBokjumoni } from "@/lib/db/queries"
 import { searchSajuKnowledge } from "@/lib/rag"
 
 export async function POST(request: NextRequest) {
@@ -28,6 +28,18 @@ export async function POST(request: NextRequest) {
         status: 404,
         headers: { "Content-Type": "application/json" },
       })
+    }
+
+    // 복주머니 차감 (인사는 무료, 유저 메시지만 차감)
+    if (message && !greeting) {
+      try {
+        await consumeBokjumoni(user_id)
+      } catch {
+        return new Response(
+          JSON.stringify({ error: "bokjumoni_empty", message: "복주머니가 부족합니다. 상점에서 충전해 주세요." }),
+          { status: 402, headers: { "Content-Type": "application/json" } },
+        )
+      }
     }
 
     // 세션 메시지 + RAG 검색
@@ -85,61 +97,69 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // saju_basis 태그 파싱
-    function parseSajuBasis(text: string) {
-      const match = text.match(/<saju_basis>\s*([\s\S]*?)\s*<\/saju_basis>/)
-      if (!match) return { cleanText: text, sajuBasis: null }
-      const cleanText = text.replace(/<saju_basis>[\s\S]*?<\/saju_basis>/, "").trimEnd()
-      try {
-        return { cleanText, sajuBasis: JSON.parse(match[1]) as Record<string, unknown> }
-      } catch {
-        return { cleanText, sajuBasis: null }
+    // 유저 메시지를 스트리밍 시작 전에 먼저 DB 저장 (리프레시 시 유실 방지)
+    if (message) {
+      await saveMessage(user_id, session_id, "user", message)
+      // 첫 유저 메시지 → 세션 제목 자동 설정
+      const hasUserMessages = sessionMessages.some(m => m.role === "user")
+      if (!hasUserMessages) {
+        const title = message.length > 30 ? message.slice(0, 30) + "..." : message
+        await updateSessionTitle(session_id, title)
       }
     }
 
-    // 스트리밍 응답
+    // 스트리밍 응답 (tool_use로 saju_basis 구조화 출력 추출)
     const stream = streamChat(systemPrompt, claudeMessages)
     const encoder = new TextEncoder()
-    let fullResponse = ""
+    let fullText = ""
+    let toolInput = ""
+    let sajuBasis: Record<string, unknown> | null = null
 
     const readable = new ReadableStream({
       async start(controller) {
         try {
           for await (const event of stream) {
-            if (
-              event.type === "content_block_delta" &&
-              event.delta.type === "text_delta"
-            ) {
-              const text = event.delta.text
-              fullResponse += text
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
-              )
+            if (event.type === "content_block_delta") {
+              if (event.delta.type === "text_delta") {
+                const text = event.delta.text
+                fullText += text
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
+                )
+              } else if (event.delta.type === "input_json_delta") {
+                toolInput += event.delta.partial_json
+              }
             }
           }
 
-          // 스트림 완료 — saju_basis 태그 파싱 후 메타데이터 전송
-          const { cleanText, sajuBasis } = parseSajuBasis(fullResponse)
+          // tool input 파싱
+          if (toolInput) {
+            try {
+              sajuBasis = JSON.parse(toolInput)
+            } catch {
+              console.error("saju_basis tool JSON 파싱 실패:", toolInput)
+            }
+          }
+
+          // 메타데이터 전송 (sajuBasis가 있을 때만 근거 데이터 포함)
+          const basis = sajuBasis ? {
+            ilgan: user.ilgan,
+            ilganChunk: ilganChunk || null,
+            pillars: {
+              yeon: user.yeon_pillar,
+              wol: user.wol_pillar,
+              il: user.il_pillar,
+              si: user.si_pillar,
+            },
+            daeun: user.daeun_current || null,
+            ...sajuBasis,
+          } : null
+
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({
-              meta: {
-                basis: {
-                  ilgan: user.ilgan,
-                  ilganChunk: ilganChunk || null,
-                  pillars: {
-                    yeon: user.yeon_pillar,
-                    wol: user.wol_pillar,
-                    il: user.il_pillar,
-                    si: user.si_pillar,
-                  },
-                  daeun: user.daeun_current || null,
-                  ...(sajuBasis || {}),
-                },
-                cleanText,
-              }
+              meta: { basis, cleanText: fullText }
             })}\n\n`)
           )
-
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
           controller.close()
         } catch (err) {
@@ -151,19 +171,10 @@ export async function POST(request: NextRequest) {
           controller.close()
         }
 
-        // 스트림 완료 후 DB 저장 (클린 텍스트)
+        // 스트림 완료 후 어시스턴트 응답 DB 저장
         try {
-          const { cleanText, sajuBasis } = parseSajuBasis(fullResponse)
-          if (message) {
-            await saveMessage(user_id, session_id, "user", message)
-            // 첫 유저 메시지 → 세션 제목 자동 설정
-            if (sessionMessages.length === 0) {
-              const title = message.length > 30 ? message.slice(0, 30) + "..." : message
-              await updateSessionTitle(session_id, title)
-            }
-          }
-          if (cleanText) {
-            await saveMessage(user_id, session_id, "assistant", cleanText, {
+          if (fullText) {
+            const meta = sajuBasis ? {
               basis: {
                 ilgan: user.ilgan,
                 ilganChunk: ilganChunk || null,
@@ -174,9 +185,10 @@ export async function POST(request: NextRequest) {
                   si: user.si_pillar,
                 },
                 daeun: user.daeun_current || null,
-                ...(sajuBasis || {}),
+                ...sajuBasis,
               },
-            })
+            } : undefined
+            await saveMessage(user_id, session_id, "assistant", fullText, meta)
           }
         } catch (err) {
           console.error("메시지 저장 실패:", err)
