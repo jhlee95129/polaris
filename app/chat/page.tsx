@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { getUserId, getPendingTopic, getCurrentSessionId, setCurrentSessionId } from "@/lib/storage"
 import MessageList, { type ChatMessage } from "@/components/chat/MessageList"
 import MessageInput from "@/components/chat/MessageInput"
-import SajuSidebar from "@/components/chat/SajuSidebar"
+import SajuSidebar, { type DailyFortune } from "@/components/chat/SajuSidebar"
 import { Button } from "@/components/ui/button"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -29,6 +29,7 @@ import { ChevronDown, ChevronUp } from "lucide-react"
 import { pillarToHanja, getIlganElement, ELEMENT_COLORS, ELEMENT_EMOJI } from "@/lib/saju-data"
 import type { Element } from "@/lib/saju-data"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface UserData {
   id: string
@@ -71,6 +72,20 @@ function formatRelativeTime(dateStr: string): string {
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
+function BokjumoniBadge({ count, animating }: { count: number; animating: boolean }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-sm font-medium text-amber-700 dark:text-amber-300 transition-all duration-300",
+        animating && "scale-110 ring-2 ring-amber-400/50"
+      )}
+      style={animating ? { animation: "shake 0.5s ease-in-out" } : undefined}
+    >
+      <span className="text-base">👜</span> {count}
+    </span>
+  )
+}
+
 export default function ChatPage() {
   const router = useRouter()
   const [userId, setUserIdState] = useState<string | null>(null)
@@ -85,6 +100,69 @@ export default function ChatPage() {
   const [bokjumoniCount, setBokjumoniCount] = useState<number>(0)
   const [showEmptyModal, setShowEmptyModal] = useState(false)
   const [mobileDeleteTarget, setMobileDeleteTarget] = useState<SessionItem | null>(null)
+  const [bokjumoniAnimating, setBokjumoniAnimating] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const [dailyFortune, setDailyFortune] = useState<DailyFortune | null>(null)
+
+  // 일일 운세 로드 (localStorage 캐시)
+  async function fetchDailyFortune(userData: UserData) {
+    const todayKey = new Date().toISOString().slice(0, 10)
+    const cacheKey = `daily-fortune-${userData.id}-${todayKey}`
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) {
+      try {
+        setDailyFortune(JSON.parse(cached))
+        return
+      } catch { /* 캐시 파싱 실패 시 재요청 */ }
+    }
+
+    try {
+      const res = await fetch("/api/daily-fortune", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ilgan: userData.ilgan,
+          pillars: {
+            yeon: userData.yeon_pillar,
+            wol: userData.wol_pillar,
+            il: userData.il_pillar,
+            si: userData.si_pillar,
+          },
+          daeun_current: userData.daeun_current,
+          display_name: userData.display_name,
+        }),
+      })
+      const data = await res.json()
+      if (data.coaching) {
+        setDailyFortune(data)
+        localStorage.setItem(cacheKey, JSON.stringify(data))
+      }
+    } catch {
+      // 실패 시 무시
+    }
+  }
+
+  // AI 추천 질문 요청
+  async function fetchSuggestions(msgs: ChatMessage[]) {
+    setSuggestionsLoading(true)
+    try {
+      const res = await fetch("/api/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: msgs.map(m => ({ role: m.role, content: m.content })),
+          user_context: user ? `${user.display_name}, 일간: ${user.ilgan}` : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (data.suggestions?.length) setSuggestions(data.suggestions)
+    } catch {
+      // 실패 시 무시
+    } finally {
+      setSuggestionsLoading(false)
+    }
+  }
 
   // 초기 로드
   useEffect(() => {
@@ -109,6 +187,7 @@ export default function ChatPage() {
       const u = userData as UserData
       setUser(u)
       setBokjumoniCount(u.bokjumoni_count ?? 0)
+      fetchDailyFortune(u)
       const loadedSessions: SessionItem[] = sessionData ?? []
       setSessions(loadedSessions)
 
@@ -177,6 +256,13 @@ export default function ChatPage() {
       ...(m.role === "assistant" ? { basis: m.metadata?.basis ?? fallbackBasis } : {}),
     }))
     setMessages(loadedMessages)
+
+    // 마지막 메시지가 AI 응답이면 추천 질문 복원
+    if (loadedMessages.length > 0 && loadedMessages[loadedMessages.length - 1].role === "assistant") {
+      fetchSuggestions(loadedMessages)
+    } else {
+      setSuggestions([])
+    }
   }
 
   // 새 대화 버튼
@@ -279,6 +365,9 @@ export default function ChatPage() {
         throw new Error("채팅 요청 실패")
       }
       setBokjumoniCount(prev => Math.max(0, prev - 1))
+      setBokjumoniAnimating(true)
+      toast("👜 복주머니 -1", { description: `남은 복주머니: ${bokjumoniCount - 1}개`, duration: 2000 })
+      setTimeout(() => setBokjumoniAnimating(false), 600)
       await readStream(res, updatedMessages)
 
       // 세션 제목 업데이트
@@ -312,6 +401,7 @@ export default function ChatPage() {
     }
     const updatedMessages = [...messages, userMsg]
     setMessages(updatedMessages)
+    setSuggestions([])
     setIsStreaming(true)
 
     // 첫 유저 메시지면 세션 제목 즉시 업데이트
@@ -343,6 +433,9 @@ export default function ChatPage() {
 
       // 성공 시 복주머니 낙관적 차감
       setBokjumoniCount(prev => Math.max(0, prev - 1))
+      setBokjumoniAnimating(true)
+      toast("👜 복주머니 -1", { description: `남은 복주머니: ${bokjumoniCount - 1}개`, duration: 2000 })
+      setTimeout(() => setBokjumoniAnimating(false), 600)
 
       await readStream(res, updatedMessages)
     } catch (err) {
@@ -410,6 +503,12 @@ export default function ChatPage() {
         }
       }
     }
+
+    // 스트리밍 완료 후 AI 추천 질문 비동기 요청
+    if (assistantContent) {
+      const finalMessages = [...currentMessages, { id: assistantId, role: "assistant" as const, content: assistantContent }]
+      fetchSuggestions(finalMessages)
+    }
   }
 
   function handleReset() {
@@ -454,9 +553,14 @@ export default function ChatPage() {
     onNewChat: handleNewChat,
     onSessionDelete: handleSessionDelete,
     onReset: handleReset,
+    dailyFortune,
   }
 
   const currentSessionTitle = sessions.find(s => s.id === currentSessionId)?.title || "새 대화"
+
+  // 추천 질문 표시 조건: AI 응답 후 (로딩 중이거나 추천 질문이 있을 ��)
+  const showSuggestions = (suggestions.length > 0 || suggestionsLoading) &&
+    messages.length > 0 && messages[messages.length - 1].role === "assistant" && !isStreaming
 
   return (
     <div className="h-[calc(100svh-49px)]">
@@ -469,14 +573,16 @@ export default function ChatPage() {
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="75%" minSize="50%">
             <div className="flex h-full flex-col">
-              {/* 데스크탑 복주머니 배지 */}
-              <div className="flex items-center justify-end px-4 py-1.5 border-b border-border/50">
-                <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-                  👜 복주머니 {bokjumoniCount}개
-                </span>
+              {/* 데스크탑 헤더 */}
+              <div className="flex items-center justify-between px-6 py-3 border-b border-border/50 bg-background/80 backdrop-blur-md">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">⭐</span>
+                  <span className="text-sm font-semibold text-foreground/80">사주 상담방</span>
+                </div>
+                <BokjumoniBadge count={bokjumoniCount} animating={bokjumoniAnimating} />
               </div>
-              <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} />
-              <MessageInput onSend={handleSend} disabled={isStreaming} />
+              <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} />
+              <MessageInput onSend={handleSend} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -495,8 +601,8 @@ export default function ChatPage() {
               <span className="text-sm font-medium truncate">{currentSessionTitle}</span>
               <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
             </button>
-            <span className="ml-2 shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-              👜 {bokjumoniCount}
+            <span className="ml-2 shrink-0">
+              <BokjumoniBadge count={bokjumoniCount} animating={bokjumoniAnimating} />
             </span>
             <button
               onClick={handleNewChat}
@@ -608,8 +714,8 @@ export default function ChatPage() {
           </SheetContent>
         </Sheet>
 
-        <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} />
-        <MessageInput onSend={handleSend} disabled={isStreaming} />
+        <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} />
+        <MessageInput onSend={handleSend} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
       </div>
 
       {/* 복주머니 부족 모달 */}
@@ -625,13 +731,13 @@ export default function ChatPage() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                className="flex-1"
+                className="flex-1 h-12 rounded-xl text-sm"
                 onClick={() => setShowEmptyModal(false)}
               >
                 닫기
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 h-12 rounded-xl text-sm"
                 onClick={() => router.push("/bokchae")}
               >
                 상점 가기

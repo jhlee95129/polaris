@@ -32,7 +32,7 @@ export interface SajuBasisInput {
 const SAJU_BASIS_TOOL: Anthropic.Messages.Tool = {
   name: "saju_basis",
   description:
-    "사주 해석이 포함된 응답일 때만 호출하세요. 이 응답에서 참조한 명리학적 근거를 구조화합니다. 단순 인사, 잡담, 되묻기, 감정 공감 등 사주 해석이 없는 응답에는 호출하지 마세요.",
+    "자연어 응답을 생성한 뒤 반드시 호출하세요. 사주 관련 조언이나 해석이 포함된 응답에서는 꼭 호출해야 합니다. 단순 인사라도 가능하면 호출하세요.",
   input_schema: {
     type: "object" as const,
     properties: {

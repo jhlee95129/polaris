@@ -138,9 +138,12 @@ export default function BokjumoniStorePage() {
       {/* 상점 */}
       <div className="space-y-3">
         <h2 className="font-semibold text-lg">🏪 상점</h2>
-        <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10 px-4 py-2.5 text-center">
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-gradient-to-r from-amber-50/80 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 px-4 py-3 text-center space-y-1">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+            🎉 오픈 기념 무료 충전 이벤트
+          </p>
           <p className="text-xs text-amber-700 dark:text-amber-300">
-            테스트 환경 — 실제 결제 없이 바로 충전돼요
+            지금은 모든 복주머니를 무료로 드려요!
           </p>
         </div>
 

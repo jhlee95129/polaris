@@ -141,8 +141,8 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // 메타데이터 전송 (sajuBasis가 있을 때만 근거 데이터 포함)
-          const basis = sajuBasis ? {
+          // 메타데이터 전송 (항상 기본 사주 정보 포함, tool 사용 시 근거 추가)
+          const basis = {
             ilgan: user.ilgan,
             ilganChunk: ilganChunk || null,
             pillars: {
@@ -152,8 +152,8 @@ export async function POST(request: NextRequest) {
               si: user.si_pillar,
             },
             daeun: user.daeun_current || null,
-            ...sajuBasis,
-          } : null
+            ...(sajuBasis || {}),
+          }
 
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
         // 스트림 완료 후 어시스턴트 응답 DB 저장
         try {
           if (fullText) {
-            const meta = sajuBasis ? {
+            const meta = {
               basis: {
                 ilgan: user.ilgan,
                 ilganChunk: ilganChunk || null,
@@ -185,9 +185,9 @@ export async function POST(request: NextRequest) {
                   si: user.si_pillar,
                 },
                 daeun: user.daeun_current || null,
-                ...sajuBasis,
+                ...(sajuBasis || {}),
               },
-            } : undefined
+            }
             await saveMessage(user_id, session_id, "assistant", fullText, meta)
           }
         } catch (err) {

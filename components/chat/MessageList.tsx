@@ -27,17 +27,19 @@ interface MessageListProps {
   messages: ChatMessage[]
   isStreaming?: boolean
   ilgan?: string
+  displayName?: string
+  scrollTrigger?: number
 }
 
-export default function MessageList({ messages, isStreaming, ilgan }: MessageListProps) {
+export default function MessageList({ messages, isStreaming, ilgan, displayName, scrollTrigger }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isStreaming])
+  }, [messages, isStreaming, scrollTrigger])
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex-1 overflow-y-auto p-4 star-pattern chat-room-ambient">
       <div className="mx-auto max-w-3xl space-y-4">
         {messages.map((msg, idx) => (
           <MessageBubble
@@ -46,21 +48,30 @@ export default function MessageList({ messages, isStreaming, ilgan }: MessageLis
             content={msg.content}
             basis={msg.basis}
             ilgan={ilgan}
+            displayName={displayName}
             isStreaming={isStreaming && idx === messages.length - 1 && msg.role === "assistant"}
           />
         ))}
 
         {/* 스트리밍 인디케이터 */}
         {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
-          <div className="flex justify-start">
-            <div className="flex items-end gap-2">
-              <span className="shrink-0 mb-0.5 text-base leading-none">⭐</span>
-              <div className="rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 shadow-sm">
-                <div className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40" style={{ animationDelay: "0ms" }} />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40" style={{ animationDelay: "150ms" }} />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40" style={{ animationDelay: "300ms" }} />
+          <div className="flex justify-start" style={{ animation: "bubbleIn 0.35s ease-out both" }}>
+            <div className="flex items-start gap-2.5">
+              <div className="shrink-0 flex flex-col items-center gap-0.5">
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/30 shadow-sm">
+                  <span className="text-base leading-none">⭐</span>
                 </div>
+                <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">폴라리스</span>
+              </div>
+              <div className="flex flex-col items-start gap-1.5">
+                <div className="rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-primary/60" style={{ animation: "dotBounce 1.2s ease-in-out infinite", animationDelay: "0ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-primary/60" style={{ animation: "dotBounce 1.2s ease-in-out infinite", animationDelay: "200ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-primary/60" style={{ animation: "dotBounce 1.2s ease-in-out infinite", animationDelay: "400ms" }} />
+                  </div>
+                </div>
+                <span className="text-[10px] text-muted-foreground ml-1">분석중...</span>
               </div>
             </div>
           </div>

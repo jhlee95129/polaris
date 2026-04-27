@@ -58,11 +58,7 @@ export default function GlobalHeader() {
     )
   }
 
-  // 상담 페이지에서는 헤더 배경을 사이드바와 동일하게
-  const isChat = pathname === "/chat"
-  const headerBg = isChat
-    ? "bg-surface-dim/80 backdrop-blur-md"
-    : "bg-background/80 backdrop-blur-md"
+  const headerBg = "bg-background/80 backdrop-blur-md"
 
   // 로그인 시 "홈"은 대시보드로
   const navItems = NAV_ITEMS.map(item =>

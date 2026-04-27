@@ -45,6 +45,7 @@ interface MessageBubbleProps {
   basis?: BasisData
   ilgan?: string
   isStreaming?: boolean
+  displayName?: string
 }
 
 function getReferencedPillarInfo(
@@ -74,32 +75,46 @@ function getReferencedPillarInfo(
   return { hangul: value, hanja: pillarToHanja(value), stem, branch, tenGod }
 }
 
-function UserAvatar({ ilgan }: { ilgan?: string }) {
+/* 사용자 아바타 — 오행 이모지 + 닉네임 라벨 */
+function UserAvatar({ ilgan, displayName }: { ilgan?: string; displayName?: string }) {
   const element = ilgan ? getIlganElement(ilgan) : null
-  if (element) {
-    return (
-      <span className="shrink-0 mb-0.5 text-base leading-none">
-        {ELEMENT_EMOJI[element]}
-      </span>
-    )
-  }
+  const emoji = element ? ELEMENT_EMOJI[element] : "👤"
   return (
-    <span className="shrink-0 mb-0.5 text-base leading-none">👤</span>
+    <div className="shrink-0 flex flex-col items-center gap-0.5">
+      <div className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10 border border-primary/20">
+        <span className="text-base leading-none">{emoji}</span>
+      </div>
+      <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[60px]">
+        {displayName || "나"}
+      </span>
+    </div>
   )
 }
 
-export default memo(function MessageBubble({ role, content, basis, ilgan, isStreaming }: MessageBubbleProps) {
+/* AI 아바타 — ⭐ + "폴라리스" 라벨 */
+function AiAvatar() {
+  return (
+    <div className="shrink-0 flex flex-col items-center gap-0.5">
+      <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/30 shadow-sm">
+        <span className="text-base leading-none">⭐</span>
+      </div>
+      <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">폴라리스</span>
+    </div>
+  )
+}
+
+export default memo(function MessageBubble({ role, content, basis, ilgan, isStreaming, displayName }: MessageBubbleProps) {
   const isUser = role === "user"
   const [open, setOpen] = useState(false)
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
-        <div className="flex items-end gap-2 max-w-[80%]">
-          <div className="rounded-2xl rounded-br-sm bg-primary/10 px-4 py-2.5">
+      <div className="flex justify-end" style={{ animation: "bubbleIn 0.35s ease-out both" }}>
+        <div className="flex items-start gap-2.5 max-w-[80%]">
+          <div className="rounded-2xl rounded-br-sm bg-primary text-primary-foreground px-4 py-2.5">
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
           </div>
-          <UserAvatar ilgan={ilgan} />
+          <UserAvatar ilgan={ilgan} displayName={displayName} />
         </div>
       </div>
     )
@@ -107,204 +122,198 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
 
   const dayStem = basis?.ilgan?.[0]
   const hasPerResponseData = basis?.reasoning || basis?.referenced_pillars?.length || basis?.key_elements?.length
+  const hasBasisData = hasPerResponseData || basis?.coaching || basis?.ilganChunk
+  // 도구가 실제로 생성한 근거가 있을 때만 버튼 표시
+  const showBasisButton = !!hasBasisData
 
   return (
-    <div className="flex justify-start">
+    <div className="flex justify-start" style={{ animation: "bubbleIn 0.35s ease-out both" }}>
       <div className="max-w-[80%]">
-        <div className="flex items-end gap-2">
-          <span className="shrink-0 mb-0.5 text-base leading-none">⭐</span>
-          <div className="rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-2.5 shadow-sm">
+        <div className="flex items-start gap-2.5">
+          <AiAvatar />
+          <div className="rounded-2xl rounded-bl-sm border border-border border-l-2 border-l-amber-300/50 dark:border-l-amber-600/30 bg-card px-4 py-2.5 shadow-sm">
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
           </div>
         </div>
 
-        {(hasPerResponseData || basis?.ilganChunk || isStreaming) && (
-          <div className="ml-8 mt-1">
-            {isStreaming && !hasPerResponseData ? (
+        {(showBasisButton || isStreaming) && (
+          <div className="ml-10 mt-1.5">
+            {isStreaming && !hasBasisData ? (
               <span className="text-xs text-muted-foreground/60 inline-flex items-center gap-1.5">
                 <span className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin" />
                 근거 분석 중...
               </span>
-            ) : basis && hasPerResponseData ? (
+            ) : basis ? (
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1">
-                  📖 사주적 근거 보기
+                <button className="text-xs text-primary hover:text-primary/90 font-medium transition-colors inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/15 px-3.5 py-1.5 border border-primary/20">
+                  <span>📖</span>
+                  <span>사주적 근거 보기</span>
                 </button>
               </SheetTrigger>
-              <SheetContent side="right" className="overflow-y-auto w-[360px] sm:w-[420px]">
-                <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2">
-                    🔍 사주적 근거
+              <SheetContent side="right" className="overflow-y-auto !w-[85%] sm:!w-[440px] p-0">
+                {/* 헤더 */}
+                <SheetHeader className="px-6 pt-6 pb-5 border-b border-border bg-gradient-to-b from-amber-50/50 to-transparent dark:from-amber-950/20">
+                  <SheetTitle className="flex items-center gap-2.5 text-lg">
+                    <span className="text-xl">📊</span> 코칭 리포트
                   </SheetTitle>
-                  <SheetDescription>
-                    이 응답에 사용된 사주적 근거입니다
+                  <SheetDescription className="text-xs text-muted-foreground">
+                    이 응답의 명리학적 분석 근거와 코칭 내용
                   </SheetDescription>
-                </SheetHeader>
-
-                <div className="space-y-5 px-4 pb-6">
-                  {/* 빈 상태 */}
-                  {!hasPerResponseData && !basis.ilganChunk && (
-                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center space-y-2">
-                      <p className="text-2xl">📭</p>
-                      <p className="text-sm text-muted-foreground">아직 구체적 근거가 없어요</p>
-                      <p className="text-xs text-muted-foreground/60">새 대화부터 응답별 근거가 자동으로 생성됩니다</p>
-                    </div>
-                  )}
-
-                  {/* 토픽 배지 */}
                   {basis.topic && (() => {
                     const meta = TOPIC_META[basis.topic] || DEFAULT_TOPIC
                     return (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm px-3 py-1.5 rounded-full bg-primary/10 text-primary font-medium inline-flex items-center gap-1.5">
-                          {meta.emoji} {meta.label}
-                        </span>
-                      </div>
+                      <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary font-semibold w-fit mt-1">
+                        {meta.emoji} {meta.label}
+                      </span>
                     )
                   })()}
+                </SheetHeader>
 
-                  {/* ── 파트 1: 사주적 근거 ── */}
-                  {(basis.reasoning || (basis.referenced_pillars && basis.referenced_pillars.length > 0) || (basis.key_elements && basis.key_elements.length > 0) || basis.ilganChunk) && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 border-b border-border pb-2">
-                        <span>🔍</span>
-                        <h3 className="text-sm font-bold">사주적 근거</h3>
-                      </div>
+                <div className="p-4 space-y-3">
+                  {/* ── 원본 응답 ── */}
+                  <div className="rounded-2xl border border-border bg-muted/30 p-4">
+                    <p className="text-xs font-bold text-muted-foreground mb-1.5"><span className="text-lg align-middle mr-0.5">💬</span> 폴라리스 응답</p>
+                    <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap line-clamp-6">{content}</p>
+                  </div>
 
-                      {/* 해석 근거 */}
-                      {basis.reasoning && (
-                        <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/[0.02] p-4">
-                          <p className="text-sm leading-relaxed">{basis.reasoning}</p>
-                        </div>
-                      )}
-
-                      {/* 참조한 기둥 */}
-                      {basis.referenced_pillars && basis.referenced_pillars.length > 0 && (
-                        <section className="space-y-2">
-                          <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                            🏛️ 참조한 기둥
-                          </h4>
-                          <div className="space-y-1.5">
-                            {basis.referenced_pillars.map(pName => {
-                              const info = getReferencedPillarInfo(pName, basis, dayStem)
-                              const pillarEmoji = PILLAR_EMOJI[pName] || "📍"
-                              if (!info) {
-                                return (
-                                  <div key={pName} className="rounded-lg border border-border bg-card p-3 flex items-center gap-2.5">
-                                    <span className="text-sm">{pillarEmoji}</span>
-                                    <span className="text-xs font-medium">{pName}</span>
-                                  </div>
-                                )
-                              }
-                              return (
-                                <div key={pName} className="rounded-lg border border-border bg-card p-3 flex items-center gap-3">
-                                  <span className="text-sm shrink-0">{pillarEmoji}</span>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`text-lg font-bold ${ELEMENT_COLORS[info.stem.element]}`}>
-                                      {info.stem.hanja}
-                                    </span>
-                                    <span className={`text-lg font-bold ${ELEMENT_COLORS[info.branch.element]}`}>
-                                      {info.branch.hanja}
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-xs font-medium">{pName}</span>
-                                      <span className="text-[11px] text-muted-foreground">{info.hangul}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-1">
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${ELEMENT_BG[info.stem.element]} ${ELEMENT_COLORS[info.stem.element]}`}>
-                                        {ELEMENT_EMOJI[info.stem.element]} {info.stem.element}
-                                      </span>
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${ELEMENT_BG[info.branch.element]} ${ELEMENT_COLORS[info.branch.element]}`}>
-                                        {ELEMENT_EMOJI[info.branch.element]} {info.branch.element}
-                                      </span>
-                                      {info.tenGod && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 bg-muted text-muted-foreground">
-                                          ⭐ {info.tenGod}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </section>
-                      )}
-
-                      {/* 주목한 오행 */}
-                      {basis.key_elements && basis.key_elements.length > 0 && (
-                        <section className="space-y-2">
-                          <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                            ✨ 주목한 오행
-                          </h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            {basis.key_elements.map(el => {
-                              const elKey = el as Element
-                              const elInfo = ELEMENTS[elKey]
-                              return (
-                                <div key={el} className={`rounded-xl border p-3 space-y-1 ${ELEMENT_BG[elKey] || "bg-muted"}`}>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-lg">{ELEMENT_EMOJI[elKey] || "✨"}</span>
-                                    <span className={`text-sm font-bold ${ELEMENT_COLORS[elKey] || "text-foreground"}`}>
-                                      {elInfo?.name || el}
-                                    </span>
-                                  </div>
-                                  {elInfo && (
-                                    <p className="text-[11px] text-muted-foreground pl-7">{elInfo.nature}</p>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </section>
-                      )}
-
-                      {/* RAG 검색 결과 */}
-                      {basis.ilganChunk && (
-                        <section className="space-y-2">
-                          <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                            📖 참조한 명리 지식
-                          </h4>
-                          <div className="rounded-xl border border-border bg-card p-3 space-y-3">
-                            {basis.ilganChunk.split("\n\n---\n\n").map((chunk, i) => {
-                              const titleMatch = chunk.match(/^## (.+)\n/)
-                              const title = titleMatch ? titleMatch[1] : null
-                              const body = title ? chunk.replace(/^## .+\n/, "") : chunk
-                              return (
-                                <div key={i} className={i > 0 ? "border-t border-border pt-3" : ""}>
-                                  {title && (
-                                    <p className="text-xs font-medium mb-1 flex items-center gap-1.5">
-                                      📄 {title}
-                                    </p>
-                                  )}
-                                  <p className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                                    {body.length > 300 ? body.slice(0, 300) + "..." : body}
-                                  </p>
-                                </div>
-                              )
-                            })}
-                          </div>
-                          <p className="text-[10px] text-muted-foreground/50 flex items-center gap-1">
-                            🔗 RAG — pgvector 벡터 검색으로 조회된 명리 지식
-                          </p>
-                        </section>
-                      )}
+                  {/* ── 1. 핵심 코칭 ── */}
+                  {basis.coaching && (
+                    <div className="rounded-2xl border border-amber-200/60 dark:border-amber-800/40 bg-gradient-to-br from-amber-50/80 to-amber-100/30 dark:from-amber-900/20 dark:to-amber-800/10 p-4">
+                      <h3 className="text-xs font-bold flex items-center gap-1.5 mb-2 text-amber-800 dark:text-amber-200">
+                        <span className="text-lg align-middle">🧭</span> 핵심 코칭
+                      </h3>
+                      <p className="text-sm leading-relaxed font-medium text-amber-900 dark:text-amber-100">{basis.coaching}</p>
                     </div>
                   )}
 
-                  {/* ── 파트 2: 핵심 코칭 ── */}
-                  {basis.coaching && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 border-b border-border pb-2">
-                        <span>🧭</span>
-                        <h3 className="text-sm font-bold">핵심 코칭</h3>
+                  {/* ── 2. 해석 근거 ── */}
+                  {basis.reasoning && (
+                    <div className="rounded-2xl border border-blue-200/50 dark:border-blue-800/30 bg-blue-50/50 dark:bg-blue-950/20 p-4">
+                      <h3 className="text-xs font-bold flex items-center gap-1.5 mb-2 text-blue-800 dark:text-blue-200">
+                        <span className="text-lg align-middle">💡</span> 해석 근거
+                      </h3>
+                      <p className="text-sm leading-relaxed text-blue-900 dark:text-blue-100">{basis.reasoning}</p>
+                    </div>
+                  )}
+
+                  {/* ── 3. 참조한 기둥 ── */}
+                  {basis.referenced_pillars && basis.referenced_pillars.length > 0 && (
+                    <div className="rounded-2xl border border-purple-200/50 dark:border-purple-800/30 bg-purple-50/30 dark:bg-purple-950/20 p-4">
+                      <h3 className="text-xs font-bold flex items-center gap-1.5 mb-2 text-purple-800 dark:text-purple-200">
+                        <span className="text-lg align-middle">🏛️</span> 참조한 기둥
+                      </h3>
+                      <div className="space-y-2">
+                        {basis.referenced_pillars.map(pName => {
+                          const info = getReferencedPillarInfo(pName, basis, dayStem)
+                          const pillarEmoji = PILLAR_EMOJI[pName] || "📍"
+                          if (!info) {
+                            return (
+                              <div key={pName} className="flex items-center gap-2">
+                                <span className="text-sm">{pillarEmoji}</span>
+                                <span className="text-sm font-medium">{pName}</span>
+                              </div>
+                            )
+                          }
+                          return (
+                            <div key={pName} className="rounded-xl bg-white/50 dark:bg-white/5 border border-border/50 p-3 flex items-center gap-3">
+                              <span className="text-sm shrink-0">{pillarEmoji}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xl font-bold ${ELEMENT_COLORS[info.stem.element]}`}>
+                                  {info.stem.hanja}
+                                </span>
+                                <span className={`text-xl font-bold ${ELEMENT_COLORS[info.branch.element]}`}>
+                                  {info.branch.hanja}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-semibold">{pName}</span>
+                                  <span className="text-[11px] text-muted-foreground">{info.hangul}</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${ELEMENT_BG[info.stem.element]} ${ELEMENT_COLORS[info.stem.element]}`}>
+                                    {ELEMENT_EMOJI[info.stem.element]} {info.stem.element}
+                                  </span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${ELEMENT_BG[info.branch.element]} ${ELEMENT_COLORS[info.branch.element]}`}>
+                                    {ELEMENT_EMOJI[info.branch.element]} {info.branch.element}
+                                  </span>
+                                  {info.tenGod && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 bg-muted text-muted-foreground">
+                                      ⭐ {info.tenGod}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                      <div className="rounded-xl border border-accent/30 bg-gradient-to-br from-accent/10 to-accent/[0.03] p-4">
-                        <p className="text-sm leading-relaxed font-medium">{basis.coaching}</p>
+                    </div>
+                  )}
+
+                  {/* ── 4. 주목한 오행 ── */}
+                  {basis.key_elements && basis.key_elements.length > 0 && (
+                    <div className="rounded-2xl border border-emerald-200/50 dark:border-emerald-800/30 bg-emerald-50/30 dark:bg-emerald-950/20 p-4">
+                      <h3 className="text-xs font-bold flex items-center gap-1.5 mb-2 text-emerald-800 dark:text-emerald-200">
+                        <span className="text-lg align-middle">✨</span> 주목한 오행
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {basis.key_elements.map(el => {
+                          const elKey = el as Element
+                          const elInfo = ELEMENTS[elKey]
+                          return (
+                            <div key={el} className={`rounded-xl border p-3 space-y-1 ${ELEMENT_BG[elKey] || "bg-muted"}`}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-base">{ELEMENT_EMOJI[elKey] || "✨"}</span>
+                                <span className={`text-xs font-bold ${ELEMENT_COLORS[elKey] || "text-foreground"}`}>
+                                  {elInfo?.name || el}
+                                </span>
+                              </div>
+                              {elInfo && (
+                                <p className="text-[11px] text-muted-foreground pl-6">{elInfo.nature}</p>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
+                    </div>
+                  )}
+
+                  {/* ── 5. 참조한 명리 지식 (RAG) ── */}
+                  {basis.ilganChunk && (
+                    <div className="rounded-2xl border border-orange-200/50 dark:border-orange-800/30 bg-orange-50/30 dark:bg-orange-950/20 p-4">
+                      <h3 className="text-xs font-bold flex items-center gap-1.5 mb-2 text-orange-800 dark:text-orange-200">
+                        <span className="text-lg align-middle">📖</span> 참조한 명리 지식
+                      </h3>
+                      <div className="space-y-2">
+                        {basis.ilganChunk.split("\n\n---\n\n").map((chunk, i) => {
+                          const titleMatch = chunk.match(/^## (.+)\n/)
+                          const title = titleMatch ? titleMatch[1] : null
+                          const body = title ? chunk.replace(/^## .+\n/, "") : chunk
+                          return (
+                            <div key={i} className={i > 0 ? "border-t border-border/50 pt-2" : ""}>
+                              {title && (
+                                <p className="text-xs font-semibold mb-1 flex items-center gap-1">
+                                  📄 {title}
+                                </p>
+                              )}
+                              <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                                {body}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 빈 상태 */}
+                  {!hasPerResponseData && !basis.ilganChunk && !basis.coaching && (
+                    <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center space-y-2">
+                      <p className="text-2xl">📭</p>
+                      <p className="text-sm font-medium text-muted-foreground">아직 구체적 근거가 없어요</p>
+                      <p className="text-xs text-muted-foreground/60">사주 해석이 포함된 응답부터 근거가 자동 생성됩니다</p>
                     </div>
                   )}
                 </div>
