@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSupabase } from "@/lib/supabase/server"
-import { updateUser, getUserSessions } from "@/lib/db/queries"
+import { updateUser, getUserSessions, deleteUser } from "@/lib/db/queries"
 import { calculateSajuProfile, generateSajuContext, type BirthInfo } from "@/lib/saju"
 import { STEM_MAP } from "@/lib/saju-data"
 import { generateText } from "@/lib/claude"
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   // 사용자 데이터
   const { data: userData, error: userError } = await supabase
     .from("users")
-    .select("id, display_name, saju_summary, yeon_pillar, wol_pillar, il_pillar, si_pillar, birth_year, birth_month, birth_day, birth_hour, is_lunar, gender, ilgan, daeun_current, created_at, bokjumoni_count, last_checkin_date")
+    .select("id, display_name, saju_summary, yeon_pillar, wol_pillar, il_pillar, si_pillar, birth_year, birth_month, birth_day, birth_hour, is_lunar, gender, ilgan, daeun_current, created_at, bokchae_count, last_checkin_date")
     .eq("id", userId)
     .single()
 
@@ -28,6 +28,20 @@ export async function GET(req: NextRequest) {
   const sessions = await getUserSessions(userId)
 
   return NextResponse.json({ user: userData, sessions })
+}
+
+export async function DELETE(req: NextRequest) {
+  const userId = req.nextUrl.searchParams.get("id")
+  if (!userId) {
+    return NextResponse.json({ error: "id 필요" }, { status: 400 })
+  }
+  try {
+    await deleteUser(userId)
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error("계정 삭제 오류:", error)
+    return NextResponse.json({ error: "삭제 실패" }, { status: 500 })
+  }
 }
 
 export async function PUT(req: NextRequest) {

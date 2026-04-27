@@ -3,102 +3,27 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { getUserId, setUserId, setPendingTopic } from "@/lib/storage"
+import { TOPIC_CATEGORIES } from "@/lib/topic-data"
 import {
   Star,
   ArrowRight,
   Brain,
   MessageCircle,
-  Compass,
   ChevronDown,
-  Briefcase,
-  Heart,
-  Coins,
-  Sparkles,
   X,
   Check,
   BookOpen,
-  TrendingUp,
-  Users,
-  Flame,
-  Clock,
-  Lightbulb,
-  GraduationCap,
-  HeartPulse,
-  Home,
+  Heart,
   type LucideIcon,
 } from "lucide-react"
 
-/* ── 주제 카드 카테고리 데이터 ── */
-interface TopicCard {
-  key: string
-  prompt: string
-  icon: LucideIcon
-  message: string
-}
-
-interface TopicCategory {
-  label: string
-  icon: LucideIcon
-  cards: TopicCard[]
-}
-
-const TOPIC_CATEGORIES: TopicCategory[] = [
-  {
-    label: "지금 많이 묻는 고민",
-    icon: TrendingUp,
-    cards: [
-      { key: "quit",       prompt: "이직해야 할까, 버텨야 할까?",     icon: Briefcase,     message: "요즘 이직 고민이 있어" },
-      { key: "love-future",prompt: "이 사람이랑 미래가 있을까?",       icon: Heart,         message: "연애 고민이 있어" },
-      { key: "money-big",  prompt: "이번 달 좀 크게 써도 될까?",       icon: Coins,         message: "재물운이 궁금해" },
-      { key: "today",      prompt: "오늘 하루 어떨까?",                icon: Sparkles,      message: "오늘 운세 봐줘" },
-    ],
-  },
-  {
-    label: "직장·커리어",
-    icon: Briefcase,
-    cards: [
-      { key: "boss",       prompt: "상사랑 자꾸 부딪히는데",           icon: Users,         message: "직장 상사랑 관계가 안 좋아" },
-      { key: "promo",      prompt: "승진할 수 있을까?",                icon: TrendingUp,    message: "승진 가능성이 궁금해" },
-      { key: "burnout",    prompt: "번아웃인 것 같은데...",             icon: Flame,         message: "요즘 번아웃이 온 것 같아" },
-      { key: "interview",  prompt: "면접 앞두고 있어",                 icon: GraduationCap, message: "면접이 곧인데 조언해줘" },
-    ],
-  },
-  {
-    label: "연애·관계",
-    icon: Heart,
-    cards: [
-      { key: "crush",      prompt: "고백해도 될까?",                   icon: HeartPulse,    message: "좋아하는 사람한테 고백할까 고민이야" },
-      { key: "fight",      prompt: "연인이랑 싸웠어",                  icon: Heart,         message: "연인이랑 크게 싸웠어" },
-      { key: "ex",         prompt: "전 애인이 자꾸 생각나",             icon: Clock,         message: "헤어진 사람이 자꾸 생각나" },
-      { key: "family",     prompt: "부모님이랑 갈등이 있어",            icon: Home,          message: "가족 관계 고민이 있어" },
-    ],
-  },
-  {
-    label: "나를 찾는 시간",
-    icon: Compass,
-    cards: [
-      { key: "direction",  prompt: "뭘 해야 할지 모르겠어",            icon: Compass,       message: "요즘 방향을 못 잡겠어" },
-      { key: "talent",     prompt: "내 적성이 뭘까?",                  icon: Lightbulb,     message: "내 적성이 궁금해" },
-      { key: "anxiety",    prompt: "불안해서 잠이 안 와",               icon: Brain,         message: "요즘 불안감이 심해" },
-      { key: "free",       prompt: "다른 고민이 있어...",               icon: MessageCircle, message: "" },
-    ],
-  },
-]
-
-/* ── Before/After 비교 데이터 ── */
-const BEFORE_ITEMS = [
-  { left: "\"올해 총운 확인\"", right: "한 번 보고 끝" },
-  { left: "카테고리 골라서 운세 보기", right: "내 상황을 모름" },
-  { left: "매번 처음부터", right: "나를 기억 못 함" },
-  { left: "5000자 보고서", right: "읽다 지침" },
-]
-
-const AFTER_ITEMS = [
-  { left: "오늘 있었던 일을 그냥 말해", right: "사주에 맞춰 해석" },
-  { left: "카테고리 없이 아무 고민이나", right: "일상 대화처럼" },
-  { left: "지난번 얘기도 기억해", right: "누적되는 관계" },
-  { left: "3-5문장으로 핵심만", right: "친구처럼 짧게" },
+/* ── 경쟁 비교표 데이터 ── */
+const COMPETITORS = [
+  { name: "운세 앱",     accuracy: true,  freeform: false, memory: false, accessible: true  },
+  { name: "챗봇 서비스", accuracy: false, freeform: true,  memory: false, accessible: true  },
+  { name: "점집 (오프라인)", accuracy: true,  freeform: true,  memory: true,  accessible: false },
 ]
 
 /* ── Hero 배경 데코레이션 ── */
@@ -375,29 +300,29 @@ export default function LandingPage() {
             {hasUser
               ? "네 사주를 기억하고 있어. 이어서 얘기하자."
               : <>
-                  <span>만세력 기반 사주 분석</span>
+                  <span>보고서가 아닌, 대화로 코칭</span>
                   <span className="text-border">·</span>
-                  <span>대화형 고민 상담</span>
+                  <span>지난 대화를 기억하는 상담</span>
                   <span className="text-border">·</span>
-                  <span>맥락을 기억하는 코칭</span>
+                  <span>모든 답변에 사주 근거 공개</span>
                 </>
             }
           </p>
 
           {/* CTA — 닉네임 입력 */}
-          <div className="mt-8 w-full max-w-xs space-y-3">
-            <div className="flex gap-2">
+          <div className="mt-8 w-full max-w-sm space-y-3">
+            <div className="flex gap-2 rounded-2xl border border-border bg-card/90 p-2 shadow-lg shadow-primary/10 backdrop-blur-sm">
               <input
                 type="text"
                 placeholder="닉네임을 입력하세요"
                 value={nicknameInput}
                 onChange={e => setNicknameInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleNicknameLogin()}
-                className="flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="flex-1 rounded-xl bg-transparent px-4 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none"
               />
               <Button
                 size="lg"
-                className="shrink-0 shadow-md shadow-primary/20"
+                className="shrink-0 rounded-xl shadow-md shadow-primary/20"
                 onClick={handleNicknameLogin}
                 disabled={lookupLoading || !nicknameInput.trim()}
               >
@@ -424,45 +349,54 @@ export default function LandingPage() {
         </section>
 
         {/* ═══════════════════════════════════════════
-            S2: Before/After 비교
+            S2: 경쟁 비교표
         ═══════════════════════════════════════════ */}
         <section className="py-20">
+          <h2 className="mb-2 text-center text-sm font-medium text-primary">
+            왜 지금까지 없었을까?
+          </h2>
           <p className="mb-10 text-center text-2xl font-bold tracking-tight sm:text-3xl">
-            한 번 쓰고{" "}
-            <span className="text-gold-gradient">다시 안 열었잖아</span>
+            사주 서비스,{" "}
+            <span className="text-gold-gradient">뭐가 부족했을까?</span>
           </p>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* 기존 사주 앱 */}
-            <div className="rounded-2xl border border-border bg-muted/30 p-5 sm:p-6">
-              <p className="mb-4 text-sm font-semibold text-muted-foreground">기존 사주 앱</p>
-              <div className="space-y-3">
-                {BEFORE_ITEMS.map((item, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">
-                      {item.left} <span className="text-muted-foreground/60">→ {item.right}</span>
-                    </p>
-                  </div>
+          <div className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground" />
+                  <th className="px-3 py-3 text-center font-medium text-muted-foreground">명식 정확</th>
+                  <th className="px-3 py-3 text-center font-medium text-muted-foreground">자유 대화</th>
+                  <th className="px-3 py-3 text-center font-medium text-muted-foreground">맥락 기억</th>
+                  <th className="px-3 py-3 text-center font-medium text-muted-foreground">접근성</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPETITORS.map(c => (
+                  <tr key={c.name} className="border-b border-border/50">
+                    <td className="px-4 py-3 text-muted-foreground">{c.name}</td>
+                    <td className="px-3 py-3 text-center">{c.accuracy ? <Check className="mx-auto h-4 w-4 text-primary" /> : <X className="mx-auto h-4 w-4 text-muted-foreground/40" />}</td>
+                    <td className="px-3 py-3 text-center">{c.freeform ? <Check className="mx-auto h-4 w-4 text-primary" /> : <X className="mx-auto h-4 w-4 text-muted-foreground/40" />}</td>
+                    <td className="px-3 py-3 text-center">{c.memory ? <Check className="mx-auto h-4 w-4 text-primary" /> : <X className="mx-auto h-4 w-4 text-muted-foreground/40" />}</td>
+                    <td className="px-3 py-3 text-center">{c.accessible ? <Check className="mx-auto h-4 w-4 text-primary" /> : <X className="mx-auto h-4 w-4 text-muted-foreground/40" />}</td>
+                  </tr>
                 ))}
-              </div>
-            </div>
-
-            {/* 폴라리스 */}
-            <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-md shadow-primary/5 sm:p-6">
-              <p className="mb-4 text-sm font-semibold text-primary">폴라리스</p>
-              <div className="space-y-3">
-                {AFTER_ITEMS.map((item, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <p className="text-sm">
-                      {item.left} <span className="text-muted-foreground">→ {item.right}</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+                {/* 폴라리스 — 강조 행 */}
+                <tr className="bg-primary/8">
+                  <td className="px-4 py-3 font-semibold text-primary">폴라리스</td>
+                  <td className="px-3 py-3 text-center"><Check className="mx-auto h-4 w-4 text-primary" /></td>
+                  <td className="px-3 py-3 text-center"><Check className="mx-auto h-4 w-4 text-primary" /></td>
+                  <td className="px-3 py-3 text-center"><Check className="mx-auto h-4 w-4 text-primary" /></td>
+                  <td className="px-3 py-3 text-center"><Check className="mx-auto h-4 w-4 text-primary" /></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            지금까지 없었던{" "}
+            <span className="font-medium text-foreground">새로운 사주 서비스</span>
+          </p>
         </section>
 
         {/* ═══════════════════════════════════════════
@@ -485,25 +419,28 @@ export default function LandingPage() {
         ═══════════════════════════════════════════ */}
         <section className="py-20">
           <h2 className="mb-2 text-center text-sm font-medium text-primary">
-            왜 폴라리스?
+            나만의 사주 라이프 코치
           </h2>
-          <p className="mb-10 text-center text-2xl font-bold tracking-tight sm:text-3xl">
-            다른 사주 앱과{" "}
-            <span className="text-gold-gradient">뭐가 다른데?</span>
+          <p className="mb-3 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+            언제든 곁에 있는{" "}
+            <span className="text-gold-gradient">나만의 친구</span>
+          </p>
+          <p className="mb-10 text-center text-sm text-muted-foreground">
+            점쟁이가 아닌, 네 사주를 아는 라이프 코치
           </p>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {[
               {
                 icon: MessageCircle,
                 title: "보고서가 아닌 대화",
-                tag: "실시간 스트리밍",
+                tag: "실시간 대화",
                 desc: "5000자짜리 운세 보고서 대신, 네 상황을 듣고 대화로 코칭해줘. \"조심하세요\" 같은 모호한 말 없이, 지금 할 수 있는 행동을 알려줘.",
               },
               {
                 icon: Brain,
                 title: "올수록 나를 더 잘 알아",
-                tag: "세션 기반 맥락 기억",
+                tag: "대화 기록 자동 저장",
                 desc: "지난번 이직 고민, 연인과의 싸움 — 다 기억해. 대화가 쌓일수록 네 상황을 더 깊이 이해하고, 더 정확한 코칭을 해줄 수 있어.",
               },
               {
@@ -511,6 +448,12 @@ export default function LandingPage() {
                 title: "근거 없는 말은 안 해",
                 tag: "사주 근거 투명 공개",
                 desc: "모든 코칭에 어떤 사주 요소를 근거로 했는지 확인할 수 있어. 일간·십신·대운 흐름까지, 블랙박스가 아닌 투명한 상담.",
+              },
+              {
+                icon: Heart,
+                title: "판단 없이, 네 편에서",
+                tag: "공감 기반 코칭",
+                desc: "정답을 강요하지 않아. 네 감정을 먼저 받아주고, 사주 흐름에 맞는 방향을 함께 찾아가는 따뜻한 코치.",
               },
             ].map(f => (
               <div
@@ -595,7 +538,7 @@ export default function LandingPage() {
               {TOPIC_CATEGORIES.map(category => (
                 <div key={category.label}>
                   <div className="mb-3 flex items-center gap-2">
-                    <category.icon className="h-4 w-4 text-primary" />
+                    <span className="text-base">{category.emoji}</span>
                     <h3 className="text-sm font-semibold">{category.label}</h3>
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
@@ -603,16 +546,15 @@ export default function LandingPage() {
                       <button
                         key={card.key}
                         onClick={() => handleTopicClick(card.message)}
-                        className={`group cursor-pointer rounded-xl px-4 py-3.5 text-left transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] ${
+                        className={cn(
+                          "group cursor-pointer rounded-2xl p-4 text-left transition-all hover:shadow-lg hover:-translate-y-1 active:scale-[0.97]",
                           card.key === "free"
                             ? "border border-dashed border-border bg-card hover:border-primary/40"
-                            : "border border-border bg-card shadow-sm hover:border-primary/40"
-                        }`}
+                            : card.bg,
+                        )}
                       >
-                        <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 text-primary transition-colors group-hover:bg-primary/15">
-                          <card.icon className="h-4 w-4" />
-                        </div>
-                        <p className="text-[13px] font-medium leading-snug">{card.prompt}</p>
+                        <span className="mb-2 block text-3xl drop-shadow-sm">{card.emoji}</span>
+                        <p className="text-[13px] font-medium leading-snug text-foreground">{card.prompt}</p>
                       </button>
                     ))}
                   </div>
@@ -650,7 +592,7 @@ export default function LandingPage() {
       <div className="mx-auto max-w-[918px] px-5">
 
         {/* 푸터 */}
-        <footer className="border-t border-border py-8 text-center">
+        <footer className="border-t border-border py-8 text-center space-y-3">
           <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
             <Star className="h-3.5 w-3.5" />
             <span>폴라리스 — 길을 잃었을 때, 방향을 잡아주는 별</span>

@@ -183,10 +183,15 @@ function OnboardingContent() {
   }, [router])
 
   useEffect(() => {
-    if (step === 0) {
-      const timer = setTimeout(() => nicknameRef.current?.focus(), 400)
-      return () => clearTimeout(timer)
+    // 스텝 전환 시 이전 포커스 해제 + 새 입력필드 포커스
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
     }
+    const timer = setTimeout(() => {
+      if (step === 0) nicknameRef.current?.focus()
+      else if (step === 1) document.getElementById("year")?.focus()
+    }, 400)
+    return () => clearTimeout(timer)
   }, [step])
 
   useEffect(() => {
@@ -285,24 +290,29 @@ function OnboardingContent() {
             <>
               {/* 브랜드 */}
               <div className="text-center">
-                <div className="inline-flex items-center gap-2">
-                  <Star className="h-6 w-6 text-primary" />
-                  <span className="text-xl font-bold text-primary">폴라리스</span>
-                </div>
+                <img src="/images/logo-text.png" alt="폴라리스" className="h-6 mx-auto" />
               </div>
 
               <StepIndicator current={step} />
 
-              {/* 버블 */}
+              {/* 말풍선 */}
               <div
                 key={`bubble-${step}`}
-                className="flex items-start gap-3 animate-[fadeInUp_0.35s_ease-out]"
+                className="flex items-start gap-2.5 animate-[fadeInUp_0.35s_ease-out]"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Star className="h-4 w-4 text-primary" />
+                <div className="shrink-0">
+                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/30 shadow-sm">
+                    <span className="text-lg leading-none">⭐</span>
+                  </div>
                 </div>
-                <div className="flex-1 rounded-2xl rounded-tl-sm border border-border bg-card p-4 shadow-sm">
-                  <p className="text-sm leading-relaxed">{bubbleMessages[step]}</p>
+                <div className="flex-1 space-y-1">
+                  <span className="text-xs font-medium text-amber-700 dark:text-amber-300">폴라리스</span>
+                  <div className="relative">
+                    <div className="absolute -left-[6px] top-2 h-2.5 w-2.5 rotate-45 bg-card border-l border-b border-border/60" />
+                    <div className="relative rounded-2xl rounded-tl-sm border border-border/60 bg-card px-4 py-3 shadow-sm">
+                      <p className="text-sm leading-relaxed">{bubbleMessages[step]}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -326,15 +336,19 @@ function OnboardingContent() {
                             ref={nicknameRef}
                             placeholder="뭐라고 부를까?"
                             value={nickname}
+                            maxLength={10}
                             onChange={e => {
                               setNickname(e.target.value)
                               setNicknameError("")
                             }}
                             onKeyDown={e => {
-                              if (e.key === "Enter" && nickname.trim()) {
-                                checkNicknameAndProceed().then(ok => {
-                                  if (ok) { setError(""); setStep(1) }
-                                })
+                              if (e.key === "Enter") {
+                                e.preventDefault()
+                                if (nickname.trim()) {
+                                  checkNicknameAndProceed().then(ok => {
+                                    if (ok) { setError(""); setStep(1) }
+                                  })
+                                }
                               }
                             }}
                             className="h-14 rounded-2xl text-center text-base"
@@ -394,7 +408,7 @@ function OnboardingContent() {
                                   : "border-border hover:border-primary/30"
                               }`}
                             >
-                              <RadioGroupItem value={opt.value} className="sr-only" />
+                              <RadioGroupItem value={opt.value} className="sr-only absolute" />
                               <span className="text-sm">{opt.label}</span>
                             </label>
                           ))}
@@ -529,7 +543,7 @@ function OnboardingContent() {
                                     : "border-border hover:border-primary/30"
                                 }`}
                               >
-                                <RadioGroupItem value={opt.value} className="sr-only" />
+                                <RadioGroupItem value={opt.value} className="sr-only absolute" />
                                 <span className="text-sm">{opt.label}</span>
                               </label>
                             ))}

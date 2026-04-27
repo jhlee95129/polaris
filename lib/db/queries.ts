@@ -24,7 +24,7 @@ export interface UserRow {
   si_pillar: string | null
   daeun_current: string | null
   saju_summary: string | null
-  bokjumoni_count: number
+  bokchae_count: number
   last_checkin_date: string | null
 }
 
@@ -42,6 +42,7 @@ export interface SessionRow {
   id: string
   user_id: string
   title: string
+  share_token: string | null
   created_at: string
   updated_at: string
 }
@@ -49,7 +50,7 @@ export interface SessionRow {
 // ─── Users ───
 
 export async function createUser(
-  data: Omit<UserRow, "id" | "created_at" | "bokjumoni_count" | "last_checkin_date">
+  data: Omit<UserRow, "id" | "created_at" | "bokchae_count" | "last_checkin_date">
 ): Promise<UserRow> {
   const supabase = getServerSupabase()
   const { data: user, error } = await supabase
@@ -102,73 +103,73 @@ export async function getUserByDisplayName(displayName: string): Promise<UserRow
   return data as UserRow
 }
 
-// ─── 복주머니 ──���
+// ─── 복채 ──���
 
-export async function consumeBokjumoni(userId: string): Promise<number> {
+export async function consumeBokchae(userId: string): Promise<number> {
   const supabase = getServerSupabase()
   const { data: current } = await supabase
     .from("users")
-    .select("bokjumoni_count")
+    .select("bokchae_count")
     .eq("id", userId)
     .single()
 
-  if (!current || current.bokjumoni_count <= 0) {
-    throw new Error("복주머니가 부족합니다")
+  if (!current || current.bokchae_count <= 0) {
+    throw new Error("복채가 부족합니다")
   }
 
-  const newCount = current.bokjumoni_count - 1
+  const newCount = current.bokchae_count - 1
   const { error } = await supabase
     .from("users")
-    .update({ bokjumoni_count: newCount })
+    .update({ bokchae_count: newCount })
     .eq("id", userId)
 
-  if (error) throw new Error(`복주머니 차감 실패: ${error.message}`)
+  if (error) throw new Error(`복채 차감 실패: ${error.message}`)
   return newCount
 }
 
-export async function checkinBokjumoni(userId: string): Promise<{ added: boolean; count: number }> {
+export async function checkinBokchae(userId: string): Promise<{ added: boolean; count: number }> {
   const supabase = getServerSupabase()
   const today = new Date().toISOString().slice(0, 10)
 
   const { data: current } = await supabase
     .from("users")
-    .select("bokjumoni_count, last_checkin_date")
+    .select("bokchae_count, last_checkin_date")
     .eq("id", userId)
     .single()
 
   if (!current) throw new Error("사용자를 찾을 수 없습니다")
 
   if (current.last_checkin_date === today) {
-    return { added: false, count: current.bokjumoni_count }
+    return { added: false, count: current.bokchae_count }
   }
 
-  const newCount = current.bokjumoni_count + 1
+  const newCount = current.bokchae_count + 1
   const { error } = await supabase
     .from("users")
-    .update({ bokjumoni_count: newCount, last_checkin_date: today })
+    .update({ bokchae_count: newCount, last_checkin_date: today })
     .eq("id", userId)
 
   if (error) throw new Error(`체크인 실패: ${error.message}`)
   return { added: true, count: newCount }
 }
 
-export async function addBokjumoni(userId: string, amount: number): Promise<number> {
+export async function addBokchae(userId: string, amount: number): Promise<number> {
   const supabase = getServerSupabase()
   const { data: current } = await supabase
     .from("users")
-    .select("bokjumoni_count")
+    .select("bokchae_count")
     .eq("id", userId)
     .single()
 
   if (!current) throw new Error("사용자를 찾을 수 없습니다")
 
-  const newCount = current.bokjumoni_count + amount
+  const newCount = current.bokchae_count + amount
   const { error } = await supabase
     .from("users")
-    .update({ bokjumoni_count: newCount })
+    .update({ bokchae_count: newCount })
     .eq("id", userId)
 
-  if (error) throw new Error(`복주머니 충전 실패: ${error.message}`)
+  if (error) throw new Error(`복채 충전 실패: ${error.message}`)
   return newCount
 }
 
@@ -293,4 +294,74 @@ export async function saveMessage(
 export async function deleteUserMessages(userId: string): Promise<void> {
   const supabase = getServerSupabase()
   await supabase.from("messages").delete().eq("user_id", userId)
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  const supabase = getServerSupabase()
+  // sessions, messages는 ON DELETE CASCADE로 자동 삭제
+  await supabase.from("users").delete().eq("id", userId)
+}
+
+// ─── Share ───
+
+/**
+ * 세션에 공유 토큰 생성 (이미 있으면 기존 토큰 반환)
+ */
+export async function createShareToken(sessionId: string): Promise<string> {
+  const supabase = getServerSupabase()
+
+  const { data: existing } = await supabase
+    .from("sessions")
+    .select("share_token")
+    .eq("id", sessionId)
+    .single()
+
+  if (existing?.share_token) return existing.share_token
+
+  const token = crypto.randomUUID()
+  const { error } = await supabase
+    .from("sessions")
+    .update({ share_token: token })
+    .eq("id", sessionId)
+
+  if (error) throw new Error(`공유 토큰 생성 실패: ${error.message}`)
+  return token
+}
+
+/**
+ * 공유 토큰으로 세션 + 메시지 + 유저 최소 정보 조회
+ */
+export async function getSharedSession(shareToken: string): Promise<{
+  session: SessionRow
+  messages: MessageRow[]
+  user: Pick<UserRow, "display_name" | "ilgan">
+} | null> {
+  const supabase = getServerSupabase()
+
+  const { data: session, error } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("share_token", shareToken)
+    .single()
+
+  if (error || !session) return null
+
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("session_id", session.id)
+    .order("created_at", { ascending: true })
+    .limit(100)
+
+  const { data: user } = await supabase
+    .from("users")
+    .select("display_name, ilgan")
+    .eq("id", session.user_id)
+    .single()
+
+  return {
+    session: session as SessionRow,
+    messages: (messages as MessageRow[]) ?? [],
+    user: user as Pick<UserRow, "display_name" | "ilgan">,
+  }
 }

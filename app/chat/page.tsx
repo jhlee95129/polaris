@@ -6,6 +6,7 @@ import { getUserId, getPendingTopic, getCurrentSessionId, setCurrentSessionId } 
 import MessageList, { type ChatMessage } from "@/components/chat/MessageList"
 import MessageInput from "@/components/chat/MessageInput"
 import SajuSidebar, { type DailyFortune } from "@/components/chat/SajuSidebar"
+import SajuInfoPanel from "@/components/chat/SajuInfoPanel"
 import { Button } from "@/components/ui/button"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -25,11 +26,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ChevronDown, ChevronUp } from "lucide-react"
-import { pillarToHanja, getIlganElement, ELEMENT_COLORS, ELEMENT_EMOJI } from "@/lib/saju-data"
-import type { Element } from "@/lib/saju-data"
+import { ChevronDown, ChevronLeft, Share2, Check, User } from "lucide-react"
+import { getIlganElement, ELEMENT_EMOJI } from "@/lib/saju-data"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface UserData {
   id: string
@@ -47,8 +48,15 @@ interface UserData {
   gender: string
   ilgan: string
   daeun_current: string | null
-  bokjumoni_count: number
+  bokchae_count: number
+  last_checkin_date: string | null
 }
+
+const PACKAGES = [
+  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "🧧" },
+  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "🧧🧧" },
+  { id: "large", name: "대복채", count: 10, price: "₩3,500", emoji: "🧧🧧🧧" },
+]
 
 interface SessionItem {
   id: string
@@ -72,17 +80,24 @@ function formatRelativeTime(dateStr: string): string {
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
-function BokjumoniBadge({ count, animating }: { count: number; animating: boolean }) {
+function BokchaeBadge({ count, animating }: { count: number; animating: boolean }) {
   return (
-    <span
-      className={cn(
-        "rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-sm font-medium text-amber-700 dark:text-amber-300 transition-all duration-300",
-        animating && "scale-110 ring-2 ring-amber-400/50"
-      )}
-      style={animating ? { animation: "shake 0.5s ease-in-out" } : undefined}
-    >
-      <span className="text-base">👜</span> {count}
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-sm font-medium text-amber-700 dark:text-amber-300 transition-all duration-300 cursor-help",
+            animating && "scale-110 ring-2 ring-amber-400/50"
+          )}
+          style={animating ? { animation: "shake 0.5s ease-in-out" } : undefined}
+        >
+          <span className="text-base">🧧</span> {count}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>질문 1개 = 복채 1개</p>
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -94,16 +109,22 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false)
   const [sessions, setSessions] = useState<SessionItem[]>([])
+
   const [currentSessionId, setCurrentSessionIdState] = useState<string | null>(null)
   const [mobileSessionListOpen, setMobileSessionListOpen] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
-  const [bokjumoniCount, setBokjumoniCount] = useState<number>(0)
+  const [bokchaeCount, setBokchaeCount] = useState<number>(0)
   const [showEmptyModal, setShowEmptyModal] = useState(false)
   const [mobileDeleteTarget, setMobileDeleteTarget] = useState<SessionItem | null>(null)
-  const [bokjumoniAnimating, setBokjumoniAnimating] = useState(false)
+  const [bokchaeAnimating, setBokchaeAnimating] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [dailyFortune, setDailyFortune] = useState<DailyFortune | null>(null)
+  const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null)
+  const [checkinLoading, setCheckinLoading] = useState(false)
+  const [checkinDone, setCheckinDone] = useState(false)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   // 일일 운세 로드 (localStorage 캐시)
   async function fetchDailyFortune(userData: UserData) {
@@ -186,7 +207,9 @@ export default function ChatPage() {
       const { user: userData, sessions: sessionData } = await res.json()
       const u = userData as UserData
       setUser(u)
-      setBokjumoniCount(u.bokjumoni_count ?? 0)
+      setBokchaeCount(u.bokchae_count ?? 0)
+      const today = new Date().toISOString().slice(0, 10)
+      setCheckinDone(u.last_checkin_date === today)
       fetchDailyFortune(u)
       const loadedSessions: SessionItem[] = sessionData ?? []
       setSessions(loadedSessions)
@@ -197,7 +220,8 @@ export default function ChatPage() {
 
       if (pendingTopic) {
         // 랜딩 카드 → 새 세션 생성 후 자동 전송
-        const session = await createNewSession(id)
+        const topicTitle = pendingTopic.length > 30 ? pendingTopic.slice(0, 30) + "..." : pendingTopic
+        const session = await createNewSession(id, topicTitle)
         setIsInitializing(false)
         await autoSendTopic(id, session.id, pendingTopic, [])
       } else if (savedSessionId && loadedSessions.some(s => s.id === savedSessionId)) {
@@ -220,11 +244,11 @@ export default function ChatPage() {
   }
 
   // 새 세션 생성
-  async function createNewSession(userId: string): Promise<SessionItem> {
+  async function createNewSession(userId: string, title?: string): Promise<SessionItem> {
     const res = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId }),
+      body: JSON.stringify({ user_id: userId, ...(title && { title }) }),
     })
     const { session } = await res.json()
     setSessions(prev => [session, ...prev])
@@ -305,6 +329,20 @@ export default function ChatPage() {
     }
   }
 
+  async function handleDeleteAllSessions() {
+    if (isStreaming) return
+    try {
+      await Promise.all(sessions.map(s => fetch(`/api/sessions?id=${s.id}`, { method: "DELETE" })))
+      setSessions([])
+      if (userId) {
+        const session = await createNewSession(userId)
+        requestGreeting(userId, session.id, [])
+      }
+    } catch (err) {
+      console.error("전체 삭제 실패:", err)
+    }
+  }
+
   // 인사 요청
   async function requestGreeting(id: string, sessionId: string, currentMessages: ChatMessage[]) {
     setIsStreaming(true)
@@ -355,8 +393,8 @@ export default function ChatPage() {
       })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        if (res.status === 402 || errData.error === "bokjumoni_empty") {
-          setBokjumoniCount(0)
+        if (res.status === 402 || errData.error === "bokchae_empty") {
+          setBokchaeCount(0)
           setShowEmptyModal(true)
           setMessages(currentMessages)
           setIsStreaming(false)
@@ -364,10 +402,10 @@ export default function ChatPage() {
         }
         throw new Error("채팅 요청 실패")
       }
-      setBokjumoniCount(prev => Math.max(0, prev - 1))
-      setBokjumoniAnimating(true)
-      toast("👜 복주머니 -1", { description: `남은 복주머니: ${bokjumoniCount - 1}개`, duration: 2000 })
-      setTimeout(() => setBokjumoniAnimating(false), 600)
+      setBokchaeCount(prev => Math.max(0, prev - 1))
+      setBokchaeAnimating(true)
+      toast("🧧 복채 -1", { description: `남은 복채: ${bokchaeCount - 1}개`, duration: 2000 })
+      setTimeout(() => setBokchaeAnimating(false), 600)
       await readStream(res, updatedMessages)
 
       // 세션 제목 업데이트
@@ -384,12 +422,21 @@ export default function ChatPage() {
     setIsStreaming(false)
   }
 
+  // 토픽 메뉴에서 선택
+  async function handleTopicFromMenu(message: string) {
+    if (!userId || isStreaming || !message) return
+    if (bokchaeCount <= 0) { setShowEmptyModal(true); return }
+    const title = message.length > 30 ? message.slice(0, 30) + "..." : message
+    const session = await createNewSession(userId, title)
+    await autoSendTopic(userId, session.id, message, [])
+  }
+
   // 메시지 전송
   const handleSend = useCallback(async (text: string) => {
     if (!userId || !currentSessionId || isStreaming) return
 
-    // 복주머니 클라이언트 프리체크
-    if (bokjumoniCount <= 0) {
+    // 복채 클라이언트 프리체크
+    if (bokchaeCount <= 0) {
       setShowEmptyModal(true)
       return
     }
@@ -419,9 +466,9 @@ export default function ChatPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        // 402: 복주머니 부족
-        if (res.status === 402 || errData.error === "bokjumoni_empty") {
-          setBokjumoniCount(0)
+        // 402: 복채 부족
+        if (res.status === 402 || errData.error === "bokchae_empty") {
+          setBokchaeCount(0)
           setShowEmptyModal(true)
           setMessages(prev => prev.filter(m => m.id !== userMsg.id))
           setIsStreaming(false)
@@ -431,11 +478,11 @@ export default function ChatPage() {
         throw new Error(errData.error || "채팅 요청 실패")
       }
 
-      // 성공 시 복주머니 낙관적 차감
-      setBokjumoniCount(prev => Math.max(0, prev - 1))
-      setBokjumoniAnimating(true)
-      toast("👜 복주머니 -1", { description: `남은 복주머니: ${bokjumoniCount - 1}개`, duration: 2000 })
-      setTimeout(() => setBokjumoniAnimating(false), 600)
+      // 성공 시 복채 낙관적 차감
+      setBokchaeCount(prev => Math.max(0, prev - 1))
+      setBokchaeAnimating(true)
+      toast("🧧 복채 -1", { description: `남은 복채: ${bokchaeCount - 1}개`, duration: 2000 })
+      setTimeout(() => setBokchaeAnimating(false), 600)
 
       await readStream(res, updatedMessages)
     } catch (err) {
@@ -447,7 +494,7 @@ export default function ChatPage() {
       }])
     }
     setIsStreaming(false)
-  }, [userId, currentSessionId, isStreaming, messages, bokjumoniCount])
+  }, [userId, currentSessionId, isStreaming, messages, bokchaeCount])
 
   // SSE 스트리밍 읽기
   async function readStream(res: Response, currentMessages: ChatMessage[]) {
@@ -511,6 +558,73 @@ export default function ChatPage() {
     }
   }
 
+  // 인라인 체크인
+  async function handleInlineCheckin() {
+    if (!userId || checkinLoading || checkinDone) return
+    setCheckinLoading(true)
+    try {
+      const res = await fetch("/api/bokchae/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      })
+      const data = await res.json()
+      if (data.added) {
+        setBokchaeCount(data.count)
+        setCheckinDone(true)
+        setShowEmptyModal(false)
+        toast.success("📅 출석 체크인 완료!", { description: `복채 +1 (총 ${data.count}개)`, duration: 2000 })
+      } else {
+        setCheckinDone(true)
+      }
+    } catch {
+      toast.error("체크인에 실패했어요")
+    } finally {
+      setCheckinLoading(false)
+    }
+  }
+
+  // 인라인 패키지 구매
+  async function handleInlinePurchase(pkgId: string) {
+    if (!userId || purchaseLoading) return
+    setPurchaseLoading(pkgId)
+    try {
+      const res = await fetch("/api/bokchae/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, package: pkgId }),
+      })
+      const data = await res.json()
+      if (data.count !== undefined) {
+        setBokchaeCount(data.count)
+        toast.success(`🧧 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
+        setShowEmptyModal(false)
+      }
+    } catch {
+      toast.error("충전에 실패했어요")
+    } finally {
+      setPurchaseLoading(null)
+    }
+  }
+
+  async function handleShare() {
+    if (!currentSessionId || shareLoading) return
+    setShareLoading(true)
+    try {
+      const res = await fetch(`/api/sessions/${currentSessionId}/share`, { method: "POST" })
+      const { share_token } = await res.json()
+      const url = `${window.location.origin}/share/${share_token}`
+      await navigator.clipboard.writeText(url)
+      setShareCopied(true)
+      toast.success("공유 링크가 복사되었습니다!", { description: "친구에게 보내보세요", duration: 2000 })
+      setTimeout(() => setShareCopied(false), 2000)
+    } catch {
+      toast.error("공유 링크 생성에 실패했어요")
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
   function handleReset() {
     router.replace("/")
   }
@@ -552,6 +666,7 @@ export default function ChatPage() {
     onSessionSwitch: handleSessionSwitch,
     onNewChat: handleNewChat,
     onSessionDelete: handleSessionDelete,
+    onDeleteAllSessions: handleDeleteAllSessions,
     onReset: handleReset,
     dailyFortune,
   }
@@ -567,7 +682,7 @@ export default function ChatPage() {
       {/* 데스크탑: Resizable */}
       <div className="hidden md:block h-full">
         <ResizablePanelGroup orientation="horizontal" className="h-full">
-          <ResizablePanel defaultSize="25%" minSize="18%" maxSize="40%">
+          <ResizablePanel defaultSize="25%" minSize="18%" maxSize="40%" collapsible collapsedSize="0%">
             <SajuSidebar {...sidebarProps} />
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -576,13 +691,39 @@ export default function ChatPage() {
               {/* 데스크탑 헤더 */}
               <div className="flex items-center justify-between px-6 py-3 border-b border-border/50 bg-background/80 backdrop-blur-md">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-lg">⭐</span>
+                  <button
+                    onClick={() => router.push("/dashboard")}
+                    className="p-1 -ml-1 rounded-md hover:bg-muted transition-colors"
+                    aria-label="대시보드로 돌아가기"
+                  >
+                    <ChevronLeft className="h-5 w-5 text-foreground/60" />
+                  </button>
                   <span className="text-sm font-semibold text-foreground/80">사주 상담방</span>
                 </div>
-                <BokjumoniBadge count={bokjumoniCount} animating={bokjumoniAnimating} />
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleShare}
+                        disabled={shareLoading || !currentSessionId}
+                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        {shareCopied ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Share2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{shareCopied ? "복사됨!" : "이 대화 공유하기"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} />
+                </div>
               </div>
               <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} />
-              <MessageInput onSend={handleSend} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
+              <MessageInput onSend={handleSend} onTopicSelect={handleTopicFromMenu} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -594,6 +735,13 @@ export default function ChatPage() {
           {/* 세션 제목 + 새 대화 */}
           <div className="flex items-center justify-between">
             <button
+              onClick={() => router.push("/dashboard")}
+              className="p-1 -ml-1 rounded-md hover:bg-muted transition-colors shrink-0"
+              aria-label="대시보드로 돌아가기"
+            >
+              <ChevronLeft className="h-5 w-5 text-foreground/60" />
+            </button>
+            <button
               onClick={() => setMobileSessionListOpen(true)}
               className="flex items-center gap-2 flex-1 min-w-0"
             >
@@ -602,8 +750,19 @@ export default function ChatPage() {
               <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
             </button>
             <span className="ml-2 shrink-0">
-              <BokjumoniBadge count={bokjumoniCount} animating={bokjumoniAnimating} />
+              <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} />
             </span>
+            <button
+              onClick={handleShare}
+              disabled={shareLoading || !currentSessionId}
+              className="ml-1 p-1.5 rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {shareCopied ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Share2 className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
             <button
               onClick={handleNewChat}
               className="ml-1 p-1.5 rounded-lg hover:bg-muted transition-colors"
@@ -612,56 +771,26 @@ export default function ChatPage() {
             </button>
           </div>
 
-          {/* 사주 정보 토글 */}
+          {/* 내 정보 보기 버튼 */}
           <button
-            onClick={() => setMobileInfoOpen(!mobileInfoOpen)}
-            className="flex items-center gap-2 w-full"
+            onClick={() => setMobileInfoOpen(true)}
+            className="flex items-center gap-2 w-full rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors"
           >
             <span className="text-sm">{mobileAvatarEmoji}</span>
-            <span className="text-sm font-medium flex-1 text-left truncate">
-              {user.saju_summary || "내 명식 보기"}
+            <span className="text-xs font-medium flex-1 text-left truncate text-foreground/80">
+              {user.saju_summary || "내 정보 · 오늘의 한수"}
             </span>
-            {mobileInfoOpen ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            )}
+            <User className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
-
-          {mobileInfoOpen && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-4 gap-2 text-center p-2 rounded-lg bg-background/50 border border-border">
-                {[
-                  { label: "시주", value: user.si_pillar || "—" },
-                  { label: "일주", value: user.il_pillar },
-                  { label: "월주", value: user.wol_pillar },
-                  { label: "년주", value: user.yeon_pillar },
-                ].map(p => (
-                  <div key={p.label} className="space-y-0.5">
-                    <p className="text-[10px] text-muted-foreground">{p.label}</p>
-                    <p className="text-xs font-medium">{p.value}</p>
-                    {p.value !== "—" && (
-                      <p className="text-[10px] font-medium text-primary/70">{pillarToHanja(p.value)}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {user.daeun_current && (
-                <p className="text-xs text-muted-foreground">
-                  현재 대운: <span className="font-medium text-foreground">{user.daeun_current}</span>
-                </p>
-              )}
-            </div>
-          )}
         </div>
 
         {/* 모바일 세션 목록 Sheet */}
         <Sheet open={mobileSessionListOpen} onOpenChange={setMobileSessionListOpen}>
-          <SheetContent side="left" className="w-[320px]">
+          <SheetContent side="left" className="w-[320px]" aria-describedby={undefined}>
             <SheetHeader>
               <SheetTitle>대화 목록</SheetTitle>
             </SheetHeader>
-            <div className="space-y-1 mt-4">
+            <div className="space-y-1 mt-4 px-4">
               <button
                 onClick={() => {
                   handleNewChat()
@@ -714,30 +843,108 @@ export default function ChatPage() {
           </SheetContent>
         </Sheet>
 
+        {/* 모바일 내 정보 Sheet */}
+        <Sheet open={mobileInfoOpen} onOpenChange={setMobileInfoOpen}>
+          <SheetContent side="right" className="w-[320px] overflow-y-auto" aria-describedby={undefined}>
+            <SheetHeader>
+              <SheetTitle>내 정보</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 px-4">
+              <SajuInfoPanel
+                displayName={user.display_name}
+                pillars={{
+                  yeon: user.yeon_pillar,
+                  wol: user.wol_pillar,
+                  il: user.il_pillar,
+                  si: user.si_pillar,
+                }}
+                birthYear={user.birth_year}
+                birthMonth={user.birth_month}
+                birthDay={user.birth_day}
+                birthHour={user.birth_hour}
+                isLunar={user.is_lunar}
+                gender={user.gender}
+                ilgan={user.ilgan}
+                daeunCurrent={user.daeun_current}
+                dailyFortune={dailyFortune}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+
         <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} />
-        <MessageInput onSend={handleSend} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
+        <MessageInput onSend={handleSend} onTopicSelect={handleTopicFromMenu} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
       </div>
 
-      {/* 복주머니 부족 모달 */}
+      {/* 복채 인라인 충전 다이얼로그 */}
       {showEmptyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl space-y-4 text-center">
-            <p className="text-4xl">👜</p>
-            <h3 className="text-lg font-bold">복주머니가 없어요</h3>
-            <p className="text-sm text-muted-foreground">
-              상담을 계속하려면 복주머니가 필요해요.<br />
-              상점에서 충전하거나 내일 출석 체크인해 주세요.
-            </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowEmptyModal(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="text-center space-y-1">
+              <p className="text-4xl">🧧</p>
+              <h3 className="text-lg font-bold">복채가 없어요</h3>
+              <p className="text-sm text-muted-foreground">질문 1개에 복채 1개가 필요해요</p>
+            </div>
+
+            {/* 출석 체크인 */}
+            {!checkinDone && (
+              <button
+                onClick={handleInlineCheckin}
+                disabled={checkinLoading}
+                className="w-full flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 px-4 py-3 transition-colors disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">📅</span>
+                  <div className="text-left">
+                    <p className="text-sm font-medium">출석 체크인</p>
+                    <p className="text-xs text-muted-foreground">매일 무료 +1</p>
+                  </div>
+                </div>
+                {checkinLoading ? (
+                  <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">무료</span>
+                )}
+              </button>
+            )}
+
+            {/* 이벤트 배너 */}
+            <div className="rounded-xl bg-gradient-to-r from-amber-50/80 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 px-3 py-2 text-center">
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">🎉 오픈 기념 무료 충전 이벤트</p>
+            </div>
+
+            {/* 패키지 그리드 */}
+            <div className="grid grid-cols-3 gap-2">
+              {PACKAGES.map(pkg => (
+                <button
+                  key={pkg.id}
+                  onClick={() => handleInlinePurchase(pkg.id)}
+                  disabled={!!purchaseLoading}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 p-3 transition-all disabled:opacity-50"
+                >
+                  <span className="text-lg">{pkg.emoji}</span>
+                  <p className="text-xs font-semibold">{pkg.name}</p>
+                  <p className="text-lg font-bold text-primary">{pkg.count}개</p>
+                  <p className="text-[10px] text-muted-foreground line-through">{pkg.price}</p>
+                  {purchaseLoading === pkg.id ? (
+                    <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">무료 충전</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
             <div className="flex gap-2">
               <Button
-                variant="outline"
-                className="flex-1 h-12 rounded-xl text-sm"
+                variant="ghost"
+                className="flex-1 text-sm text-muted-foreground"
                 onClick={() => setShowEmptyModal(false)}
               >
                 닫기
               </Button>
               <Button
-                className="flex-1 h-12 rounded-xl text-sm"
+                className="flex-1 text-sm"
                 onClick={() => router.push("/bokchae")}
               >
                 상점 가기

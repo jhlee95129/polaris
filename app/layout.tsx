@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next"
-import { Geist_Mono, Black_Han_Sans } from "next/font/google"
+import { Geist_Mono } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import GlobalHeader from "@/components/nav/global-header"
 import { Toaster } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 const fontMono = Geist_Mono({
@@ -12,11 +13,6 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
-const fontLogo = Black_Han_Sans({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-logo",
-})
 
 export const metadata: Metadata = {
   title: "폴라리스 — 길을 잃었을 때, 방향을 잡아주는 별",
@@ -39,7 +35,7 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, fontLogo.variable)}
+      className={cn("antialiased", fontMono.variable)}
     >
       <head>
         <link
@@ -51,9 +47,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-svh bg-background">
         <ThemeProvider>
-          <GlobalHeader />
-          {children}
-          <Toaster richColors position="top-center" />
+          <TooltipProvider>
+            <GlobalHeader />
+            {children}
+            <Toaster richColors position="top-center" />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

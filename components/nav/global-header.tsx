@@ -4,20 +4,26 @@ import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { getUserId, clearUser } from "@/lib/storage"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
+} from "@/components/ui/alert-dialog"
+import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { LucideIcon } from "lucide-react"
 
 interface NavItem {
   href: string
   label: string
-  emoji: string
+  icon: LucideIcon
   auth?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "홈", emoji: "🏠" },
-  { href: "/chat", label: "상담", emoji: "💬", auth: true },
-  { href: "/bokchae", label: "복주머니", emoji: "👜", auth: true },
-  { href: "/mypage", label: "내 정보", emoji: "👤", auth: true },
+  { href: "/", label: "홈", icon: Home },
+  { href: "/chat", label: "상담", icon: MessageCircle, auth: true },
+  { href: "/bokchae", label: "상점", icon: Store, auth: true },
+  { href: "/mypage", label: "내 정보", icon: UserRound, auth: true },
 ]
 
 export default function GlobalHeader() {
@@ -38,11 +44,9 @@ export default function GlobalHeader() {
   }
 
   function handleLogout() {
-    if (confirm("로그아웃해요. 나중에 같은 닉네임으로 다시 로그인할 수 있어요.")) {
-      clearUser()
-      setHasUser(false)
-      router.push("/")
-    }
+    clearUser()
+    setHasUser(false)
+    router.push("/")
   }
 
   // 온보딩에서는 로고만
@@ -51,7 +55,7 @@ export default function GlobalHeader() {
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="flex items-center px-6 py-3">
           <button onClick={() => router.push("/")} className="flex items-center">
-            <span className="text-lg font-bold tracking-tight font-[var(--font-logo)]">폴라리스</span>
+            <img src="/images/logo-text.png" alt="폴라리스" className="h-5" />
           </button>
         </div>
       </header>
@@ -63,7 +67,7 @@ export default function GlobalHeader() {
   // 로그인 시 "홈"은 대시보드로
   const navItems = NAV_ITEMS.map(item =>
     item.href === "/" && hasUser
-      ? { ...item, href: "/dashboard", label: "대시보드" }
+      ? { ...item, href: "/dashboard", label: "대시보드", icon: LayoutDashboard }
       : item
   )
 
@@ -72,7 +76,7 @@ export default function GlobalHeader() {
       <div className="flex items-center justify-between px-6 py-3">
         {/* 로고 */}
         <button onClick={() => router.push(hasUser ? "/dashboard" : "/")} className="flex items-center">
-          <span className="text-lg font-bold tracking-tight font-[var(--font-logo)]">폴라리스</span>
+          <img src="/images/logo-text.png" alt="폴라리스" className="h-5" />
         </button>
 
         <div className="flex items-center gap-0.5">
@@ -80,6 +84,7 @@ export default function GlobalHeader() {
           <nav className="flex items-center gap-0.5">
             {navItems.map(item => {
               const isActive = pathname === item.href || (item.href === "/dashboard" && pathname === "/dashboard")
+              const Icon = item.icon
               return (
                 <Button
                   key={item.href}
@@ -91,7 +96,7 @@ export default function GlobalHeader() {
                     : "text-muted-foreground hover:text-foreground"
                   }
                 >
-                  <span className="md:mr-1 text-sm">{item.emoji}</span>
+                  <Icon className="h-4 w-4 md:mr-1" />
                   <span className="hidden md:inline">{item.label}</span>
                 </Button>
               )
@@ -103,18 +108,33 @@ export default function GlobalHeader() {
 
           {/* 로그인/로그아웃 */}
           {hasUser ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <span className="md:mr-1 text-sm">🚪</span>
-              <span className="hidden md:inline">로그아웃</span>
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <LogOut className="h-4 w-4 md:mr-1" />
+                  <span className="hidden md:inline">로그아웃</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>로그아웃</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    로그아웃해요. 나중에 같은 닉네임으로 다시 로그인할 수 있어요.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>취소</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleLogout}>로그아웃</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           ) : (
             <Button size="sm" onClick={() => router.push("/onboarding")}>
-              <span className="md:mr-1 text-sm">⭐</span>
+              <Star className="h-4 w-4 md:mr-1" />
               <span className="hidden md:inline">시작하기</span>
             </Button>
           )}

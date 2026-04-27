@@ -132,6 +132,9 @@
   body {
     @apply bg-background text-foreground;
     }
+  button, a, [role="button"], input[type="submit"], input[type="button"], summary {
+    cursor: pointer;
+    }
   html {
     font-family: "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     }

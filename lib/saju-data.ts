@@ -49,16 +49,16 @@ export interface StemInfo {
 }
 
 export const STEMS: StemInfo[] = [
-  { hangul: "갑", hanja: "甲", element: "목", yinYang: "양", description: "큰 나무", personality: "리더십, 추진력, 곧은 성격. 한번 결정하면 밀고 나가는 우직함" },
-  { hangul: "을", hanja: "乙", element: "목", yinYang: "음", description: "화초·덩굴", personality: "유연함, 적응력, 외유내강. 부드럽지만 끈질기게 목표를 향해 감" },
-  { hangul: "병", hanja: "丙", element: "화", yinYang: "양", description: "태양", personality: "열정, 밝음, 주목받는 존재. 직설적이고 에너지가 넘침" },
-  { hangul: "정", hanja: "丁", element: "화", yinYang: "음", description: "촛불·별빛", personality: "섬세함, 예술적 감각, 내면의 열정. 조용하지만 깊은 빛을 발함" },
-  { hangul: "무", hanja: "戊", element: "토", yinYang: "양", description: "큰 산", personality: "안정감, 중재력, 묵직함. 믿음직하지만 변화에 느릴 수 있음" },
-  { hangul: "기", hanja: "己", element: "토", yinYang: "음", description: "논밭·평야", personality: "포용력, 현실감각, 부드러운 고집. 받아들이면서도 자기 길을 감" },
-  { hangul: "경", hanja: "庚", element: "금", yinYang: "양", description: "쇠·바위", personality: "의리, 결단력, 냉정함. 한번 칼 뽑으면 끝을 보는 성격" },
-  { hangul: "신", hanja: "辛", element: "금", yinYang: "음", description: "보석·가위", personality: "섬세함, 완벽추구, 예민함. 날카로운 감각과 미적 안목" },
-  { hangul: "임", hanja: "壬", element: "수", yinYang: "양", description: "큰 바다·강", personality: "지혜, 포용력, 자유로움. 넓고 깊게 생각하며 흘러가듯 살아감" },
-  { hangul: "계", hanja: "癸", element: "수", yinYang: "음", description: "이슬·빗물", personality: "감수성, 직관력, 영감. 조용히 스며드는 힘으로 변화를 만듦" },
+  { hangul: "갑", hanja: "甲", element: "목", yinYang: "양", description: "큰 나무", personality: "하늘을 향해 곧게 뻗는 큰 나무처럼 리더십과 추진력이 강합니다. 한번 결정하면 흔들리지 않고 밀고 나가는 우직함이 있어요. 정의감이 강하고 자존심이 높으며, 새로운 길을 개척하는 선구자적 기질을 타고났습니다. 다만 고집이 세고 융통성이 부족할 수 있어, 때로는 주변의 의견에 귀 기울이는 연습이 필요해요." },
+  { hangul: "을", hanja: "乙", element: "목", yinYang: "음", description: "화초·덩굴", personality: "덩굴이 담장을 타고 오르듯 유연하게 환경에 적응하는 능력이 뛰어납니다. 겉으로는 부드럽지만 속으로는 강한 외유내강형이에요. 끈질기게 목표를 향해 나아가며, 사람들과의 관계에서 조화를 중시합니다. 감성이 풍부하고 눈치가 빨라 분위기를 잘 읽지만, 우유부단해 보일 수 있어 결단의 순간에는 과감해질 필요가 있어요." },
+  { hangul: "병", hanja: "丙", element: "화", yinYang: "양", description: "태양", personality: "태양처럼 밝고 따뜻한 에너지로 주변을 환하게 밝히는 사람입니다. 열정적이고 직설적이며, 어디서든 자연스럽게 주목받는 존재감을 가지고 있어요. 낙천적이고 활동적이라 사람들이 자연스럽게 모여들고, 리더 역할을 맡는 경우가 많습니다. 다만 성격이 급하고 화끈한 면이 있어, 감정 조절과 인내심을 기르면 더 큰 빛을 발할 수 있어요." },
+  { hangul: "정", hanja: "丁", element: "화", yinYang: "음", description: "촛불·별빛", personality: "촛불처럼 조용하지만 깊은 빛을 발하는 섬세한 사람입니다. 예술적 감각과 내면의 열정이 조화를 이루며, 한 가지에 몰두하면 놀라운 집중력을 보여줍니다. 직관력이 뛰어나고 사려 깊어서 상대방의 마음을 잘 헤아려요. 완벽주의 성향이 있고 감정 기복이 있을 수 있지만, 그만큼 깊이 있는 사고와 표현력으로 독보적인 매력을 가지고 있습니다." },
+  { hangul: "무", hanja: "戊", element: "토", yinYang: "양", description: "큰 산", personality: "큰 산처럼 묵직하고 안정감 있는 존재입니다. 어떤 상황에서도 흔들리지 않는 듬직함으로 주변 사람들에게 신뢰를 줍니다. 중재력이 뛰어나 갈등 상황에서 중심을 잡아주는 역할을 잘 해요. 책임감이 강하고 약속을 중시하지만, 변화에 느리고 새로운 시도를 꺼리는 면이 있어 때로는 과감한 변화를 받아들이는 유연함이 필요합니다." },
+  { hangul: "기", hanja: "己", element: "토", yinYang: "음", description: "논밭·평야", personality: "비옥한 논밭처럼 무엇이든 받아들이고 성장시키는 포용력을 가졌습니다. 현실감각이 뛰어나고 실용적이며, 부드러운 겉모습 안에 자기만의 확고한 신념을 품고 있어요. 사람들을 잘 돌보고 배려하며, 꾸준히 자기 길을 걸어갑니다. 겸손하지만 자기 가치를 과소평가하는 경향이 있을 수 있어, 자신의 성과를 인정하고 당당히 표현하는 연습이 도움이 됩니다." },
+  { hangul: "경", hanja: "庚", element: "금", yinYang: "양", description: "쇠·바위", personality: "단단한 쇠와 바위처럼 의지가 강하고 결단력이 뛰어납니다. 한번 칼을 뽑으면 끝을 보는 성격으로, 의리를 중시하고 불의를 참지 못해요. 행동력이 뛰어나고 승부욕이 강해 목표한 것은 반드시 이루어냅니다. 냉정하고 이성적인 판단력이 장점이지만, 지나치게 직설적이거나 독선적으로 보일 수 있어 부드러운 소통 방식을 익히면 좋습니다." },
+  { hangul: "신", hanja: "辛", element: "금", yinYang: "음", description: "보석·가위", personality: "정교하게 세공된 보석처럼 섬세하고 날카로운 감각을 지녔습니다. 완벽을 추구하는 성향으로 높은 기준을 세우며, 미적 안목과 분석력이 탁월해요. 자존심이 높고 자기만의 세계가 뚜렷해서 독창적인 성과를 만들어냅니다. 예민하고 까다로운 면이 있지만, 그 섬세함이 곧 남다른 전문성과 품격으로 이어집니다." },
+  { hangul: "임", hanja: "壬", element: "수", yinYang: "양", description: "큰 바다·강", personality: "넓은 바다처럼 포용력이 크고 자유로운 영혼의 소유자입니다. 지혜롭고 생각이 깊으며, 어떤 상황에서든 물 흐르듯 유연하게 대처해요. 호기심이 많아 다양한 분야에 관심을 가지며, 사람을 가리지 않는 넓은 인맥을 형성합니다. 자유를 사랑하는 만큼 구속을 싫어해서, 틀에 박힌 환경보다는 자율적인 환경에서 최고의 능력을 발휘합니다." },
+  { hangul: "계", hanja: "癸", element: "수", yinYang: "음", description: "이슬·빗물", personality: "아침 이슬처럼 맑고 순수한 감수성을 지닌 사람입니다. 직관력과 영감이 뛰어나며, 조용히 스며드는 힘으로 주변에 변화를 만들어냅니다. 관찰력이 날카롭고 상상력이 풍부해 창의적인 분야에서 빛을 발해요. 내성적이고 감정이 깊어 혼자만의 시간이 필요하지만, 마음을 열면 누구보다 깊고 진실한 관계를 맺을 수 있습니다." },
 ]
 
 export const STEM_MAP = Object.fromEntries(STEMS.map(s => [s.hangul, s])) as Record<string, StemInfo>

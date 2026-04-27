@@ -151,7 +151,7 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
                   <span>사주적 근거 보기</span>
                 </button>
               </SheetTrigger>
-              <SheetContent side="right" className="overflow-y-auto !w-[85%] sm:!w-[440px] p-0">
+              <SheetContent side="right" className="overflow-y-auto !w-[92%] sm:!w-[520px] lg:!w-[560px] p-0">
                 {/* 헤더 */}
                 <SheetHeader className="px-6 pt-6 pb-5 border-b border-border bg-gradient-to-b from-amber-50/50 to-transparent dark:from-amber-950/20">
                   <SheetTitle className="flex items-center gap-2.5 text-lg">
@@ -174,7 +174,7 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
                   {/* ── 원본 응답 ── */}
                   <div className="rounded-2xl border border-border bg-muted/30 p-4">
                     <p className="text-xs font-bold text-muted-foreground mb-1.5"><span className="text-lg align-middle mr-0.5">💬</span> 폴라리스 응답</p>
-                    <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap line-clamp-6">{content}</p>
+                    <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">{content}</p>
                   </div>
 
                   {/* ── 1. 핵심 코칭 ── */}
@@ -216,30 +216,30 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
                             )
                           }
                           return (
-                            <div key={pName} className="rounded-xl bg-white/50 dark:bg-white/5 border border-border/50 p-3 flex items-center gap-3">
-                              <span className="text-sm shrink-0">{pillarEmoji}</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-xl font-bold ${ELEMENT_COLORS[info.stem.element]}`}>
+                            <div key={pName} className="rounded-xl bg-white/50 dark:bg-white/5 border border-border/50 p-3.5 flex items-center gap-3.5">
+                              <span className="text-lg shrink-0">{pillarEmoji}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-2xl font-bold ${ELEMENT_COLORS[info.stem.element]}`}>
                                   {info.stem.hanja}
                                 </span>
-                                <span className={`text-xl font-bold ${ELEMENT_COLORS[info.branch.element]}`}>
+                                <span className={`text-2xl font-bold ${ELEMENT_COLORS[info.branch.element]}`}>
                                   {info.branch.hanja}
                                 </span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-xs font-semibold">{pName}</span>
-                                  <span className="text-[11px] text-muted-foreground">{info.hangul}</span>
+                                  <span className="text-sm font-semibold">{pName}</span>
+                                  <span className="text-xs text-muted-foreground">{info.hangul}</span>
                                 </div>
-                                <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${ELEMENT_BG[info.stem.element]} ${ELEMENT_COLORS[info.stem.element]}`}>
+                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                  <span className={`text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${ELEMENT_BG[info.stem.element]} ${ELEMENT_COLORS[info.stem.element]}`}>
                                     {ELEMENT_EMOJI[info.stem.element]} {info.stem.element}
                                   </span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${ELEMENT_BG[info.branch.element]} ${ELEMENT_COLORS[info.branch.element]}`}>
+                                  <span className={`text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${ELEMENT_BG[info.branch.element]} ${ELEMENT_COLORS[info.branch.element]}`}>
                                     {ELEMENT_EMOJI[info.branch.element]} {info.branch.element}
                                   </span>
                                   {info.tenGod && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 bg-muted text-muted-foreground">
+                                    <span className="text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 bg-muted text-muted-foreground">
                                       ⭐ {info.tenGod}
                                     </span>
                                   )}

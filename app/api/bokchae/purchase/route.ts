@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { addBokjumoni } from "@/lib/db/queries"
+import { addBokchae } from "@/lib/db/queries"
 
 const PACKAGES: Record<string, number> = {
   small: 3,
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     const amount = PACKAGES[pkg]
-    const newCount = await addBokjumoni(user_id, amount)
+    const newCount = await addBokchae(user_id, amount)
     return NextResponse.json({ count: newCount, added: amount })
   } catch (err) {
     return NextResponse.json(

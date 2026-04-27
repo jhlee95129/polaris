@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
-import { streamChat } from "@/lib/claude"
+import { streamChat, extractSajuBasis } from "@/lib/claude"
 import { buildSystemPrompt, buildUserContextBlock } from "@/lib/prompts"
-import { getUser, getSessionMessages, getRecentMessages, saveMessage, updateSessionTitle, consumeBokjumoni } from "@/lib/db/queries"
+import { getUser, getSessionMessages, getRecentMessages, saveMessage, updateSessionTitle, consumeBokchae } from "@/lib/db/queries"
 import { searchSajuKnowledge } from "@/lib/rag"
 
 export async function POST(request: NextRequest) {
@@ -30,13 +30,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 복주머니 차감 (인사는 무료, 유저 메시지만 차감)
+    // 복채 차감 (인사는 무료, 유저 메시지만 차감)
     if (message && !greeting) {
       try {
-        await consumeBokjumoni(user_id)
+        await consumeBokchae(user_id)
       } catch {
         return new Response(
-          JSON.stringify({ error: "bokjumoni_empty", message: "복주머니가 부족합니다. 상점에서 충전해 주세요." }),
+          JSON.stringify({ error: "bokchae_empty", message: "복채가 부족합니다. 상점에서 충전해 주세요." }),
           { status: 402, headers: { "Content-Type": "application/json" } },
         )
       }
@@ -138,6 +138,15 @@ export async function POST(request: NextRequest) {
               sajuBasis = JSON.parse(toolInput)
             } catch {
               console.error("saju_basis tool JSON 파싱 실패:", toolInput)
+            }
+          }
+
+          // 도구 미호출 시 2차 강제 추출
+          if (!sajuBasis && fullText) {
+            try {
+              sajuBasis = await extractSajuBasis(systemPrompt, claudeMessages, fullText) as Record<string, unknown> | null
+            } catch (err) {
+              console.error("saju_basis fallback 추출 실패:", err)
             }
           }
 

@@ -9,14 +9,14 @@ import { toast } from "sonner"
 /* ── 상점 패키지 데이터 ── */
 
 const PACKAGES = [
-  { id: "small", name: "소복주머니", count: 3, price: "₩1,000", emoji: "👜" },
-  { id: "medium", name: "중복주머니", count: 5, price: "₩2,000", emoji: "👜👜" },
-  { id: "large", name: "대복주머니", count: 10, price: "₩3,500", emoji: "👜👜👜" },
+  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "🧧" },
+  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "🧧🧧" },
+  { id: "large", name: "대복채", count: 10, price: "₩3,500", emoji: "🧧🧧🧧" },
 ]
 
-export default function BokjumoniStorePage() {
+export default function BokchaeStorePage() {
   const router = useRouter()
-  const [bokjumoniCount, setBokjumoniCount] = useState<number | null>(null)
+  const [bokchaeCount, setBokchaeCount] = useState<number | null>(null)
   const [lastCheckinDate, setLastCheckinDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [checkinLoading, setCheckinLoading] = useState(false)
@@ -36,7 +36,7 @@ export default function BokjumoniStorePage() {
       .then(r => r.json())
       .then(data => {
         if (data.user) {
-          setBokjumoniCount(data.user.bokjumoni_count ?? 0)
+          setBokchaeCount(data.user.bokchae_count ?? 0)
           setLastCheckinDate(data.user.last_checkin_date ?? null)
           // 오늘 이미 체크인했는지 확인
           const today = new Date().toISOString().slice(0, 10)
@@ -53,16 +53,16 @@ export default function BokjumoniStorePage() {
     if (!userId || checkinDone) return
     setCheckinLoading(true)
     try {
-      const res = await fetch("/api/bokjumoni/checkin", {
+      const res = await fetch("/api/bokchae/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId }),
       })
       const data = await res.json()
       if (data.added) {
-        setBokjumoniCount(data.count)
+        setBokchaeCount(data.count)
         setCheckinDone(true)
-        toast.success("출석 체크인 완료! 복주머니 +1")
+        toast.success("출석 체크인 완료! 복채 +1")
       } else {
         setCheckinDone(true)
         toast.info("오늘은 이미 체크인했어요")
@@ -77,7 +77,7 @@ export default function BokjumoniStorePage() {
     if (!userId) return
     setPurchaseLoading(packageId)
     try {
-      const res = await fetch("/api/bokjumoni/purchase", {
+      const res = await fetch("/api/bokchae/purchase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId, package: packageId }),
@@ -85,8 +85,8 @@ export default function BokjumoniStorePage() {
       const data = await res.json()
       if (data.count !== undefined) {
         const pkg = PACKAGES.find(p => p.id === packageId)
-        setBokjumoniCount(data.count)
-        toast.success(`${pkg?.name ?? "복주머니"} 구매 완료! +${data.added ?? pkg?.count}개`)
+        setBokchaeCount(data.count)
+        toast.success(`${pkg?.name ?? "복채"} 구매 완료! +${data.added ?? pkg?.count}개`)
       }
     } catch {
       toast.error("구매에 실패했어요. 다시 시도해주세요.")
@@ -103,19 +103,19 @@ export default function BokjumoniStorePage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8 space-y-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
       {/* 헤더 */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold">👜 복주머니</h1>
+        <h1 className="text-2xl font-bold">🏪 상점</h1>
         <p className="text-sm text-muted-foreground">
-          상담에 필요한 복주머니를 충전해
+          상담에 필요한 복채를 충전해
         </p>
       </div>
 
       {/* 현재 잔량 */}
       <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-2">
-        <p className="text-5xl font-bold text-primary">{bokjumoniCount ?? 0}</p>
-        <p className="text-sm text-muted-foreground">현재 복주머니</p>
+        <p className="text-5xl font-bold text-primary">{bokchaeCount ?? 0}</p>
+        <p className="text-sm text-muted-foreground">현재 복채</p>
       </div>
 
       {/* 출석 체크인 */}
@@ -123,7 +123,7 @@ export default function BokjumoniStorePage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold">📅 출석 체크인</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">매일 1회, 복주머니 +1</p>
+            <p className="text-xs text-muted-foreground mt-0.5">매일 1회, 복채 +1</p>
           </div>
           <Button
             size="sm"
@@ -137,13 +137,13 @@ export default function BokjumoniStorePage() {
 
       {/* 상점 */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-lg">🏪 상점</h2>
+        <h2 className="font-semibold text-lg">🧧 복채 충전</h2>
         <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-gradient-to-r from-amber-50/80 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 px-4 py-3 text-center space-y-1">
           <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
             🎉 오픈 기념 무료 충전 이벤트
           </p>
           <p className="text-xs text-amber-700 dark:text-amber-300">
-            지금은 모든 복주머니를 무료로 드려요!
+            지금은 모든 복채를 무료로 드려요!
           </p>
         </div>
 
@@ -157,7 +157,7 @@ export default function BokjumoniStorePage() {
                 <span className="text-2xl">{pkg.emoji}</span>
                 <div>
                   <p className="font-semibold text-sm">{pkg.name}</p>
-                  <p className="text-xs text-muted-foreground">복주머니 {pkg.count}개</p>
+                  <p className="text-xs text-muted-foreground">복채 {pkg.count}개</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -177,14 +177,14 @@ export default function BokjumoniStorePage() {
 
       {/* 설명 */}
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">복주머니란?</p>
+        <p className="font-medium text-foreground">복채란?</p>
         <div className="flex items-start gap-2">
-          <span>👜</span>
-          <span>상담 메시지 1회에 복주머니 1개를 사용해</span>
+          <span>🧧</span>
+          <span>상담 메시지 1회에 복채 1개를 사용해</span>
         </div>
         <div className="flex items-start gap-2">
           <span>📅</span>
-          <span>매일 출석 체크인하면 복주머니 1개 충전</span>
+          <span>매일 출석 체크인하면 복채 1개 충전</span>
         </div>
         <div className="flex items-start gap-2">
           <span>🏪</span>
@@ -197,9 +197,9 @@ export default function BokjumoniStorePage() {
         size="lg"
         className="w-full"
         onClick={() => router.push("/chat")}
-        disabled={(bokjumoniCount ?? 0) <= 0}
+        disabled={(bokchaeCount ?? 0) <= 0}
       >
-        {(bokjumoniCount ?? 0) > 0 ? "상담하러 가기 →" : "복주머니를 충전해주세요"}
+        {(bokchaeCount ?? 0) > 0 ? "상담하러 가기 →" : "복채를 충전해주세요"}
       </Button>
     </div>
   )

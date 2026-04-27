@@ -2,31 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getUserId, setPendingTopic } from "@/lib/storage"
+import { getUserId, setPendingTopic, clearCurrentSession } from "@/lib/storage"
 import { Button } from "@/components/ui/button"
 import {
   ELEMENT_EMOJI,
-  ELEMENT_COLORS,
-  ELEMENT_BG,
-  ELEMENTS,
   STEM_MAP,
-  pillarToHanja,
   type Element,
 } from "@/lib/saju-data"
 import { cn } from "@/lib/utils"
+import { TOPIC_CATEGORIES } from "@/lib/topic-data"
+import { toast } from "sonner"
 
 /* ── 타입 ── */
 
 interface UserData {
   id: string
   display_name: string | null
-  saju_summary: string | null
   ilgan: string
-  yeon_pillar: string
-  wol_pillar: string
-  il_pillar: string
-  si_pillar: string | null
-  bokjumoni_count: number
+  bokchae_count: number
   last_checkin_date: string | null
 }
 
@@ -37,49 +30,8 @@ interface SessionItem {
 }
 
 interface SajuProfileData {
-  dayStem: string
-  dayStemDescription: string
-  elementCounts: Record<Element, number>
-  dominantElement: Element
-  weakestElement: Element
-  usefulGod: Element
-  usefulGodReason: string
-  todayPillar: {
-    pillar: string
-    pillarHanja: string
-    stemElement: Element
-    branchElement: Element
-  } | null
   todayInteraction: string | null
-  yearAnimal: string | null
 }
-
-/* ── 빠른 상담 토픽 데이터 ── */
-
-interface QuickTopic {
-  emoji: string
-  label: string
-  message: string
-}
-
-const QUICK_TOPICS: QuickTopic[] = [
-  { emoji: "💼", label: "이직 고민", message: "요즘 이직 고민이 있어" },
-  { emoji: "❤️", label: "연애 운세", message: "연애 고민이 있어" },
-  { emoji: "💰", label: "재물운", message: "재물운이 궁금해" },
-  { emoji: "✨", label: "오늘 운세", message: "오늘 운세 봐줘" },
-  { emoji: "🔥", label: "번아웃", message: "요즘 번아웃이 온 것 같아" },
-  { emoji: "🧭", label: "진로 탐색", message: "내 적성이 궁금해" },
-  { emoji: "👨‍👩‍👧", label: "가족 관계", message: "가족 관계 고민이 있어" },
-  { emoji: "💬", label: "자유 상담", message: "" },
-]
-
-/* ── USP 배너 데이터 ── */
-
-const USP_ITEMS = [
-  { emoji: "💬", title: "대화로 코칭하는 사주", desc: "운세 보고서가 아닌, 실시간 대화형 코칭" },
-  { emoji: "🧠", title: "지난 대화를 기억해요", desc: "세션을 넘어 누적되는 맥락 기반 상담" },
-  { emoji: "📋", title: "사주 근거를 투명하게", desc: "매 응답마다 명리학 근거 시트 제공" },
-]
 
 /* ── 유틸 ── */
 
@@ -103,6 +55,14 @@ function getIlganEmoji(ilgan: string): string {
   return ELEMENT_EMOJI[stem.element] ?? "⭐"
 }
 
+/* ── 복채 패키지 ── */
+
+const PACKAGES = [
+  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "🧧" },
+  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "🧧🧧" },
+  { id: "large", name: "대복채", count: 10, price: "₩3,000", emoji: "🧧🧧🧧" },
+]
+
 /* ── 메인 컴포넌트 ── */
 
 export default function DashboardPage() {
@@ -113,6 +73,8 @@ export default function DashboardPage() {
   const [checkinLoading, setCheckinLoading] = useState(false)
   const [checkinDone, setCheckinDone] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showEmptyModal, setShowEmptyModal] = useState(false)
+  const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null)
 
   useEffect(() => {
     const userId = getUserId()
@@ -144,23 +106,56 @@ export default function DashboardPage() {
     if (!user || checkinDone) return
     setCheckinLoading(true)
     try {
-      const res = await fetch("/api/bokjumoni/checkin", {
+      const res = await fetch("/api/bokchae/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id }),
       })
       const data = await res.json()
       if (data.added) {
-        setUser(prev => prev ? { ...prev, bokjumoni_count: data.count } : prev)
+        setUser(prev => prev ? { ...prev, bokchae_count: data.count } : prev)
         setCheckinDone(true)
+        setShowEmptyModal(false)
+        toast.success("📅 출석 체크인 완료!", { description: `복채 +1 (총 ${data.count}개)`, duration: 2000 })
       } else {
         setCheckinDone(true)
       }
-    } catch { /* ignore */ }
+    } catch {
+      toast.error("체크인에 실패했어요")
+    }
     setCheckinLoading(false)
   }
 
+  async function handleInlinePurchase(pkgId: string) {
+    if (!user || purchaseLoading) return
+    setPurchaseLoading(pkgId)
+    try {
+      const res = await fetch("/api/bokchae/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user.id, package: pkgId }),
+      })
+      const data = await res.json()
+      if (data.count !== undefined) {
+        setUser(prev => prev ? { ...prev, bokchae_count: data.count } : prev)
+        toast.success(`🧧 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
+        setShowEmptyModal(false)
+      }
+    } catch {
+      toast.error("충전에 실패했어요")
+    } finally {
+      setPurchaseLoading(null)
+    }
+  }
+
   function handleTopicClick(message: string) {
+    if (user && user.bokchae_count <= 0) {
+      setShowEmptyModal(true)
+      return
+    }
+    clearCurrentSession()
+    // 이전 pending topic 제거 후 새로 설정
+    sessionStorage.removeItem("polaris_pending_topic")
     if (message) setPendingTopic(message)
     router.push("/chat")
   }
@@ -179,117 +174,57 @@ export default function DashboardPage() {
   const displayName = user.display_name || "사용자"
   const recentSessions = sessions.slice(0, 3)
 
+  const hour = new Date().getHours()
+  const greeting =
+    hour < 6  ? "늦은 밤이에요, 오늘 하루도 고생했어요" :
+    hour < 12 ? "좋은 아침이에요, 오늘 하루도 응원할게요" :
+    hour < 18 ? "오후도 힘내요, 좋은 흐름이 함께해요" :
+                "수고한 하루, 편안한 저녁 보내세요"
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
 
-      {/* ── 인사 헤더 ── */}
-      <section className="space-y-2">
-        <h1 className="text-2xl font-bold">
-          {ilganEmoji} {displayName}님, 오늘도 폴라리스가 함께해요
-        </h1>
-        {user.saju_summary && (
-          <p className="text-muted-foreground text-sm">{user.saju_summary}</p>
-        )}
-        <div className="flex items-center gap-3 text-sm">
-          <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-            👜 복주머니 {user.bokjumoni_count}개
-          </span>
-          {!checkinDone && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCheckin}
-              disabled={checkinLoading}
-              className="h-6 text-xs px-2"
-            >
-              {checkinLoading ? "..." : "📅 출석 체크인 (+1)"}
-            </Button>
-          )}
+      {/* ═══ 인사 헤더 ═══ */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {ilganEmoji} {displayName}님
+          </h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{greeting}</p>
         </div>
-      </section>
+        <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+          🧧 복채 {user.bokchae_count}
+        </span>
+      </div>
 
-      {/* ── 오늘의 운세 카드 ── */}
-      {profile?.todayPillar && (
-        <section className="saju-card-border rounded-2xl p-6 space-y-4 bg-card">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-lg">📅 오늘의 일진</h2>
-            <span className="text-xs text-muted-foreground">
-              {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}
-            </span>
+      {/* ═══ 출석 체크인 카드 ═══ */}
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold">📅 출석 체크인</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">매일 1회, 복채 +1</p>
           </div>
-
-          {/* 일진 간지 표시 */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-3xl font-bold text-gold-gradient">
-                {profile.todayPillar.pillarHanja}
-              </span>
-              <span className="text-lg text-muted-foreground">
-                ({profile.todayPillar.pillar})
-              </span>
-            </div>
-            <div className="flex gap-1.5">
-              <span className={cn(
-                "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                ELEMENT_BG[profile.todayPillar.stemElement],
-                ELEMENT_COLORS[profile.todayPillar.stemElement],
-              )}>
-                {ELEMENT_EMOJI[profile.todayPillar.stemElement]} {ELEMENTS[profile.todayPillar.stemElement].name}
-              </span>
-              <span className={cn(
-                "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                ELEMENT_BG[profile.todayPillar.branchElement],
-                ELEMENT_COLORS[profile.todayPillar.branchElement],
-              )}>
-                {ELEMENT_EMOJI[profile.todayPillar.branchElement]} {ELEMENTS[profile.todayPillar.branchElement].name}
-              </span>
-            </div>
-          </div>
-
-          {/* 오행 상호작용 해석 */}
-          {profile.todayInteraction && (
-            <p className="text-sm leading-relaxed text-foreground/80">
-              {profile.todayInteraction}
-            </p>
-          )}
-
           <Button
             size="sm"
-            variant="outline"
-            className="w-full"
-            onClick={() => handleTopicClick("오늘 운세 봐줘")}
+            onClick={handleCheckin}
+            disabled={checkinDone || checkinLoading}
           >
-            💬 오늘의 운세 자세히 상담하기
+            {checkinLoading ? "..." : checkinDone ? "완료" : "체크인"}
           </Button>
-        </section>
-      )}
-
-      {/* ── 빠른 상담 토픽 ── */}
-      <section className="space-y-3">
-        <h2 className="font-semibold text-lg">💬 무엇이 궁금하세요?</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {QUICK_TOPICS.map(topic => (
-            <button
-              key={topic.label}
-              onClick={() => handleTopicClick(topic.message)}
-              className="flex flex-col items-center gap-1.5 rounded-xl border border-border/50 bg-card p-4 transition-colors hover:border-primary/30 hover:bg-primary/5"
-            >
-              <span className="text-2xl">{topic.emoji}</span>
-              <span className="text-xs font-medium text-foreground">{topic.label}</span>
-            </button>
-          ))}
         </div>
-      </section>
+      </div>
 
-      {/* ── 최근 대화 ── */}
-      {recentSessions.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-lg">🕐 최근 대화</h2>
+      {/* ═══ S1: 최근 대화 ═══ */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-lg">최근 대화</h2>
+          {recentSessions.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => router.push("/chat")}>
               전체 보기
             </Button>
-          </div>
+          )}
+        </div>
+        {recentSessions.length > 0 ? (
           <div className="space-y-2">
             {recentSessions.map(session => (
               <button
@@ -298,7 +233,7 @@ export default function DashboardPage() {
                   localStorage.setItem("polaris_current_session_id", session.id)
                   router.push("/chat")
                 }}
-                className="flex w-full items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/5"
+                className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/5"
               >
                 <span className="truncate text-sm font-medium">{session.title}</span>
                 <span className="ml-3 shrink-0 text-xs text-muted-foreground">
@@ -307,88 +242,229 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <button
+            onClick={() => router.push("/chat")}
+            className="w-full rounded-2xl border border-dashed border-border bg-card p-6 text-center transition-colors hover:border-primary/30 hover:bg-primary/5"
+          >
+            <p className="text-sm text-muted-foreground">아직 대화가 없어요</p>
+            <p className="mt-1 text-sm font-medium text-primary">첫 상담 시작하기 →</p>
+          </button>
+        )}
+      </section>
 
-      {/* ── 사주 프로필 미니 ── */}
-      {profile && (
-        <section className="rounded-2xl border border-border/50 bg-card p-5 space-y-4">
+      {/* ═══ 배너: 오늘의 한마디 ═══ */}
+      <button
+        onClick={() => handleTopicClick("오늘 운세 봐줘")}
+        className="flex w-full items-center gap-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-4 text-left text-white shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99]"
+      >
+        <span className="text-4xl">✨</span>
+        <div>
+          <p className="text-xs font-medium text-white/70">오늘의 한마디</p>
+          <p className="mt-1 text-sm font-semibold leading-snug">
+            오늘 하루, 어떤 기운이 감돌까요? 터치해서 확인해 보세요
+          </p>
+        </div>
+      </button>
+
+      {/* ═══ S2: 오늘의 코칭 ═══ */}
+      <section className="space-y-4">
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-lg">🔮 나의 사주 프로필</h2>
-            <Button variant="ghost" size="sm" onClick={() => router.push("/mypage")}>
-              상세 리포트
-            </Button>
+            <h2 className="font-semibold">오늘의 코칭</h2>
+            <span className="text-xs text-muted-foreground">
+              {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}
+            </span>
           </div>
+          {profile?.todayInteraction && (
+            <p className="text-sm leading-relaxed text-foreground/80">
+              {profile.todayInteraction}
+            </p>
+          )}
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { emoji: "☀️", label: "오늘 운세",   bg: "bg-amber-50 dark:bg-amber-950/40",   message: "오늘 운세 봐줘" },
+              { emoji: "💼", label: "오늘 업무",   bg: "bg-blue-50 dark:bg-blue-950/40",     message: "오늘 업무운이 궁금해" },
+              { emoji: "❤️", label: "오늘 연애",   bg: "bg-rose-50 dark:bg-rose-950/40",     message: "오늘 연애운 어때?" },
+              { emoji: "💰", label: "오늘 재물",   bg: "bg-emerald-50 dark:bg-emerald-950/40",message: "오늘 재물운 봐줘" },
+              { emoji: "🤝", label: "오늘 대인",   bg: "bg-violet-50 dark:bg-violet-950/40", message: "오늘 대인관계운 알려줘" },
+              { emoji: "🍀", label: "오늘 행운",   bg: "bg-green-50 dark:bg-green-950/40",   message: "오늘 행운의 시간대가 궁금해" },
+              { emoji: "⚠️", label: "오늘 주의",   bg: "bg-orange-50 dark:bg-orange-950/40", message: "오늘 조심할 점 알려줘" },
+              { emoji: "🌙", label: "내일 미리보기",bg: "bg-indigo-50 dark:bg-indigo-950/40", message: "내일 운세 미리 볼 수 있어?" },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={() => handleTopicClick(item.message)}
+                className={cn(
+                  "rounded-xl p-3 text-center transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97]",
+                  item.bg,
+                )}
+              >
+                <span className="block text-2xl mb-1">{item.emoji}</span>
+                <span className="text-[11px] font-medium text-foreground">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* 일간 + 사주 4기둥 */}
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <span className="text-3xl">{ilganEmoji}</span>
-              <p className="text-xs text-muted-foreground mt-1">{user.ilgan} 일간</p>
+      {/* ═══ 배너: 고민 상담 유도 ═══ */}
+      <button
+        onClick={() => handleTopicClick("요즘 고민이 있는데 사주로 방향을 찾고 싶어")}
+        className="flex w-full items-center gap-4 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-400 px-5 py-4 text-left text-white shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99]"
+      >
+        <span className="text-4xl">🧭</span>
+        <div>
+          <p className="text-xs font-medium text-white/70">나만의 상담</p>
+          <p className="mt-1 text-sm font-semibold leading-snug">
+            요즘 고민이 있다면, 사주로 방향을 찾아볼까요?
+          </p>
+        </div>
+      </button>
+
+      {/* ═══ S3: 무엇이 궁금하세요? ═══ */}
+      <section className="space-y-6">
+        <h2 className="font-semibold text-lg">무엇이 궁금하세요?</h2>
+        {TOPIC_CATEGORIES.map(category => (
+          <div key={category.label}>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-base">{category.emoji}</span>
+              <h3 className="text-sm font-semibold">{category.label}</h3>
             </div>
-            <div className="flex gap-2">
-              {[
-                { label: "년", pillar: user.yeon_pillar },
-                { label: "월", pillar: user.wol_pillar },
-                { label: "일", pillar: user.il_pillar },
-                ...(user.si_pillar ? [{ label: "시", pillar: user.si_pillar }] : []),
-              ].map(p => (
-                <div key={p.label} className="text-center rounded-lg bg-muted/50 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">{p.label}주</div>
-                  <div className="text-sm font-bold">{pillarToHanja(p.pillar)}</div>
-                  <div className="text-xs text-muted-foreground">{p.pillar}</div>
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {category.cards.map(card => (
+                <button
+                  key={card.key}
+                  onClick={() => handleTopicClick(card.message)}
+                  className={cn(
+                    "group cursor-pointer rounded-2xl p-4 text-left transition-all hover:shadow-lg hover:-translate-y-1 active:scale-[0.97]",
+                    card.key === "free"
+                      ? "border border-dashed border-border bg-card hover:border-primary/40"
+                      : card.bg,
+                  )}
+                >
+                  <span className="mb-2 block text-3xl drop-shadow-sm">{card.emoji}</span>
+                  <p className="text-[13px] font-medium leading-snug text-foreground">{card.prompt}</p>
+                </button>
               ))}
             </div>
           </div>
-
-          {/* 오행 분포 바 */}
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground font-medium">오행 분포</p>
-            <div className="flex gap-1 h-5 rounded-full overflow-hidden">
-              {(Object.entries(profile.elementCounts) as [Element, number][])
-                .filter(([, v]) => v > 0)
-                .map(([el, count]) => {
-                  const total = Object.values(profile.elementCounts).reduce((a, b) => a + b, 0)
-                  const pct = Math.round((count / total) * 100)
-                  return (
-                    <div
-                      key={el}
-                      className={cn("flex items-center justify-center text-[10px] font-bold", ELEMENT_BG[el], ELEMENT_COLORS[el])}
-                      style={{ width: `${pct}%` }}
-                      title={`${ELEMENTS[el].name} ${pct}%`}
-                    >
-                      {pct >= 15 && `${ELEMENT_EMOJI[el]}${pct}%`}
-                    </div>
-                  )
-                })}
-            </div>
-          </div>
-
-          {/* 용신 */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium">용신:</span>
-            <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", ELEMENT_BG[profile.usefulGod], ELEMENT_COLORS[profile.usefulGod])}>
-              {ELEMENT_EMOJI[profile.usefulGod]} {ELEMENTS[profile.usefulGod].name}
-            </span>
-            <span className="text-muted-foreground text-xs truncate">{profile.usefulGodReason}</span>
-          </div>
-        </section>
-      )}
-
-      {/* ── USP 배너 ── */}
-      <section className="grid gap-3 sm:grid-cols-3">
-        {USP_ITEMS.map(item => (
-          <div
-            key={item.title}
-            className="rounded-xl border border-border/50 bg-muted/30 p-4 space-y-1.5"
-          >
-            <div className="text-xl">{item.emoji}</div>
-            <h3 className="font-semibold text-sm">{item.title}</h3>
-            <p className="text-xs text-muted-foreground">{item.desc}</p>
-          </div>
         ))}
       </section>
+
+      {/* ═══ 배너: 나를 알아가는 시간 ═══ */}
+      <button
+        onClick={() => handleTopicClick("내 사주에서 가장 강한 기운이 뭐야? 성격이랑 어떻게 연결되는지 알려줘")}
+        className="flex w-full items-center gap-4 rounded-2xl bg-gradient-to-r from-teal-500 to-cyan-500 px-5 py-4 text-left text-white shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99]"
+      >
+        <span className="text-4xl">🪞</span>
+        <div>
+          <p className="text-xs font-medium text-white/70">나를 알아가는 시간</p>
+          <p className="mt-1 text-sm font-semibold leading-snug">
+            내 사주 속 숨은 강점, 지금 확인해 볼까요?
+          </p>
+        </div>
+      </button>
+
+      {/* ═══ S4: 사주로 보는 나 ═══ */}
+      <section className="space-y-4">
+        <h2 className="font-semibold text-lg">사주로 보는 나</h2>
+        <div className="grid grid-cols-2 gap-2.5">
+          {[
+            { emoji: "🔥", label: "내 성격 깊이 보기", bg: "bg-rose-50 dark:bg-rose-950/40", message: "내 사주로 본 성격의 장단점을 알려줘" },
+            { emoji: "🧬", label: "타고난 재능", bg: "bg-violet-50 dark:bg-violet-950/40", message: "내 사주에서 타고난 재능이나 적성이 뭐야?" },
+            { emoji: "🔮", label: "올해의 흐름", bg: "bg-indigo-50 dark:bg-indigo-950/40", message: "올해 나한테 어떤 흐름이 오고 있어?" },
+            { emoji: "🤝", label: "인간관계 패턴", bg: "bg-emerald-50 dark:bg-emerald-950/40", message: "내 사주로 본 인간관계 스타일이 궁금해" },
+          ].map(item => (
+            <button
+              key={item.label}
+              onClick={() => handleTopicClick(item.message)}
+              className={cn(
+                "rounded-2xl p-4 text-left transition-all hover:shadow-lg hover:-translate-y-1 active:scale-[0.97]",
+                item.bg,
+              )}
+            >
+              <span className="mb-2 block text-3xl drop-shadow-sm">{item.emoji}</span>
+              <p className="text-[13px] font-medium leading-snug text-foreground">{item.label}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══ 복채 인라인 충전 다이얼로그 ═══ */}
+      {showEmptyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowEmptyModal(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="text-center space-y-1">
+              <p className="text-4xl">🧧</p>
+              <h3 className="text-lg font-bold">복채가 없어요</h3>
+              <p className="text-sm text-muted-foreground">질문 1개에 복채 1개가 필요해요</p>
+            </div>
+
+            {!checkinDone && (
+              <button
+                onClick={handleCheckin}
+                disabled={checkinLoading}
+                className="w-full flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 px-4 py-3 transition-colors disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">📅</span>
+                  <div className="text-left">
+                    <p className="text-sm font-medium">출석 체크인</p>
+                    <p className="text-xs text-muted-foreground">매일 무료 +1</p>
+                  </div>
+                </div>
+                {checkinLoading ? (
+                  <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">무료</span>
+                )}
+              </button>
+            )}
+
+            <div className="rounded-xl bg-gradient-to-r from-amber-50/80 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 px-3 py-2 text-center">
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">오픈 기념 무료 충전 이벤트</p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {PACKAGES.map(pkg => (
+                <button
+                  key={pkg.id}
+                  onClick={() => handleInlinePurchase(pkg.id)}
+                  disabled={!!purchaseLoading}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 p-3 transition-all disabled:opacity-50"
+                >
+                  <span className="text-lg">{pkg.emoji}</span>
+                  <p className="text-xs font-semibold">{pkg.name}</p>
+                  <p className="text-lg font-bold text-primary">{pkg.count}개</p>
+                  <p className="text-[10px] text-muted-foreground line-through">{pkg.price}</p>
+                  {purchaseLoading === pkg.id ? (
+                    <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">무료 충전</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                className="flex-1 text-sm text-muted-foreground"
+                onClick={() => setShowEmptyModal(false)}
+              >
+                닫기
+              </Button>
+              <Button
+                className="flex-1 text-sm"
+                onClick={() => router.push("/bokchae")}
+              >
+                상점 가기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

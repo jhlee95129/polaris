@@ -52,7 +52,7 @@ const SAJU_BASIS_TOOL: Anthropic.Messages.Tool = {
       },
       coaching: {
         type: "string",
-        description: "핵심 코칭 — 사주 해석을 바탕으로 사용자가 취해야 할 구체적 행동이나 마음가짐 1-2문장",
+        description: "핵심 코칭 — 사용자에게 직접 건네는 따뜻한 조언 1-2문장. 구체적 행동이나 마음가짐을 사주 근거와 함께 제시. '라포', '열린 질문' 등 상담 용어 사용 금지. 첫 대화라면 사용자의 사주 특성에서 긍정적인 점을 짧게 짚어줄 것.",
       },
       topic: {
         type: "string",
@@ -84,6 +84,34 @@ export function streamChat(
     tools: [SAJU_BASIS_TOOL],
     tool_choice: { type: "auto" },
   })
+}
+
+// ─── saju_basis 강제 추출 (스트리밍에서 도구 미호출 시 fallback) ───
+
+export async function extractSajuBasis(
+  systemPrompt: string,
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+  assistantResponse: string
+): Promise<SajuBasisInput | null> {
+  const anthropic = getClient()
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 512,
+    system: systemPrompt,
+    messages: [
+      ...messages,
+      { role: "assistant", content: assistantResponse },
+      { role: "user", content: "[시스템] 위 응답에 대해 saju_basis 도구를 호출해 주세요." },
+    ],
+    tools: [SAJU_BASIS_TOOL],
+    tool_choice: { type: "tool", name: "saju_basis" },
+  })
+
+  const toolBlock = response.content.find(b => b.type === "tool_use" && b.name === "saju_basis")
+  if (toolBlock && toolBlock.type === "tool_use") {
+    return toolBlock.input as SajuBasisInput
+  }
+  return null
 }
 
 // ─── 비스트리밍 텍스트 생성 (온보딩 요약 등) ───
