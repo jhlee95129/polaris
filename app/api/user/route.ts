@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSupabase } from "@/lib/supabase/server"
 import { updateUser, getUserSessions, deleteUser } from "@/lib/db/queries"
-import { calculateSajuProfile, generateSajuContext, type BirthInfo } from "@/lib/saju"
+import { calculateSajuProfile, generateSajuContext, lunarToSolarDate, type BirthInfo } from "@/lib/saju"
 import { STEM_MAP } from "@/lib/saju-data"
 import { generateText } from "@/lib/claude"
+import { getCurrentDaeunPillar } from "@/lib/daeun"
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("id")
@@ -107,6 +108,26 @@ export async function PUT(req: NextRequest) {
       sajuSummary = `${ilganName} 일간`
     }
 
+    // 대운 재계산
+    let daeunCurrent: string | null = null
+    try {
+      let solarY = birth_year, solarM = birth_month, solarD = birth_day
+      if (is_lunar) {
+        const converted = lunarToSolarDate(birth_year, birth_month, birth_day)
+        solarY = converted.solar.year
+        solarM = converted.solar.month
+        solarD = converted.solar.day
+      }
+      daeunCurrent = getCurrentDaeunPillar(
+        wolPillar,
+        yeonPillar[0],
+        gender === "male" ? "M" : "F",
+        solarY, solarM, solarD
+      )
+    } catch (e) {
+      console.error("대운 계산 실패:", e)
+    }
+
     const user = await updateUser(id, {
       display_name: display_name || null,
       birth_year,
@@ -120,6 +141,7 @@ export async function PUT(req: NextRequest) {
       wol_pillar: wolPillar,
       il_pillar: ilPillar,
       si_pillar: siPillar,
+      daeun_current: daeunCurrent,
       saju_summary: sajuSummary,
     })
 

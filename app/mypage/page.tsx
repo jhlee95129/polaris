@@ -51,6 +51,13 @@ interface FullUserData {
   bokchae_count: number
 }
 
+interface DaeunItem {
+  pillar: string
+  pillarHanja: string
+  startAge: number
+  endAge: number
+}
+
 interface SajuProfileData {
   dayStem: string
   dayStemDescription: string
@@ -64,6 +71,9 @@ interface SajuProfileData {
   todayPillar: { pillar: string; pillarHanja: string; stemElement: Element; branchElement: Element } | null
   todayInteraction: string | null
   yearAnimal: string | null
+  daeunSequence?: DaeunItem[]
+  daeunStartAge?: number | null
+  daeunIsForward?: boolean | null
 }
 
 export default function MyPage() {
@@ -175,8 +185,28 @@ export default function MyPage() {
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-[calc(100svh-49px)] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-lg px-4 py-8 space-y-6 animate-pulse">
+        {/* 프로필 헤더 */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-20 w-20 rounded-full bg-muted" />
+          <div className="h-6 w-32 rounded-lg bg-muted" />
+          <div className="h-4 w-48 rounded bg-muted" />
+        </div>
+        {/* 사주 카드 */}
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          <div className="h-5 w-20 rounded bg-muted" />
+          <div className="grid grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-20 rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
+        {/* 오행 분석 */}
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+          <div className="h-5 w-24 rounded bg-muted" />
+          <div className="h-8 rounded-full bg-muted" />
+          <div className="h-4 w-3/4 rounded bg-muted" />
+        </div>
       </div>
     )
   }
@@ -360,23 +390,43 @@ export default function MyPage() {
           })}
         </div>
 
-        {/* 현재 대운 */}
-        {user.daeun_current && (() => {
-          const dStem = STEM_MAP[user.daeun_current[0]]
+        {/* 대운표 */}
+        {profile?.daeunSequence && profile.daeunSequence.length > 0 && (() => {
+          const currentAge = new Date().getFullYear() - user.birth_year
           return (
-            <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-              <span className="text-xl">🌊</span>
-              <div>
-                <p className="text-xs text-muted-foreground">현재 대운</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-sm font-semibold">{user.daeun_current}</span>
-                  <span className="text-xs text-muted-foreground">{pillarToHanja(user.daeun_current)}</span>
-                  {dStem && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${ELEMENT_BG[dStem.element]} ${ELEMENT_COLORS[dStem.element]}`}>
-                      {ELEMENT_EMOJI[dStem.element]} {dStem.element}
-                    </span>
-                  )}
-                </div>
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground">대운 흐름</p>
+                <span className="text-[10px] text-muted-foreground">
+                  {profile.daeunIsForward ? "순행" : "역행"} · 10년 주기
+                </span>
+              </div>
+              <div className="flex gap-1 overflow-x-auto pb-1 -mx-1">
+                {profile.daeunSequence.map((d) => {
+                  const isCurrent = currentAge >= d.startAge && currentAge <= d.endAge
+                  const dStem = STEM_MAP[d.pillar[0]]
+                  return (
+                    <div
+                      key={d.startAge}
+                      className={`flex flex-col items-center flex-1 rounded-xl py-2 min-w-0 transition-colors ${
+                        isCurrent
+                          ? "bg-primary/10 border border-primary/30 ring-1 ring-primary/20"
+                          : "bg-muted/30"
+                      }`}
+                    >
+                      <span className="text-[10px] text-muted-foreground">{d.startAge}세</span>
+                      <span className={`text-sm font-bold mt-0.5 ${isCurrent ? "text-primary" : ""}`}>
+                        {d.pillar}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">{d.pillarHanja}</span>
+                      {dStem && (
+                        <span className={`text-[10px] mt-0.5 ${ELEMENT_COLORS[dStem.element]}`}>
+                          {dStem.element}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )

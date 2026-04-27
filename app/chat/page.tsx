@@ -326,6 +326,7 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.error("세션 삭제 실패:", err)
+      toast.error("대화 삭제에 실패했어요")
     }
   }
 
@@ -631,10 +632,31 @@ export default function ChatPage() {
 
   if (!user || isInitializing) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm">로딩 중...</span>
+      <div className="flex min-h-svh animate-pulse">
+        {/* 사이드바 스켈레톤 (데스크톱) */}
+        <div className="hidden md:flex w-72 flex-col border-r border-border bg-card p-4 space-y-4">
+          <div className="h-8 w-32 rounded-lg bg-muted" />
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-10 rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
+        {/* 채팅 영역 스켈레톤 */}
+        <div className="flex-1 flex flex-col">
+          <div className="h-12 border-b border-border bg-card" />
+          <div className="flex-1 p-4 space-y-4">
+            <div className="flex gap-3">
+              <div className="h-8 w-8 rounded-full bg-muted shrink-0" />
+              <div className="h-16 w-2/3 rounded-2xl bg-muted" />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <div className="h-10 w-1/2 rounded-2xl bg-muted" />
+            </div>
+          </div>
+          <div className="p-3 pb-6">
+            <div className="mx-auto max-w-3xl h-[52px] rounded-2xl bg-muted" />
+          </div>
         </div>
       </div>
     )

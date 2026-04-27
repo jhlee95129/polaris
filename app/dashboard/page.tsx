@@ -162,8 +162,45 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-3xl px-4 py-8 space-y-8 animate-pulse">
+        {/* 인사 헤더 스켈레톤 */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-7 w-40 rounded-lg bg-muted" />
+            <div className="h-4 w-56 rounded bg-muted" />
+          </div>
+          <div className="h-6 w-20 rounded-full bg-muted" />
+        </div>
+        {/* 체크인 카드 */}
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1.5">
+              <div className="h-5 w-28 rounded bg-muted" />
+              <div className="h-3 w-36 rounded bg-muted" />
+            </div>
+            <div className="h-8 w-16 rounded-md bg-muted" />
+          </div>
+        </div>
+        {/* 최근 대화 */}
+        <div className="space-y-3">
+          <div className="h-5 w-24 rounded bg-muted" />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="h-4 rounded bg-muted" style={{ width: `${50 + i * 10}%` }} />
+            </div>
+          ))}
+        </div>
+        {/* 배너 */}
+        <div className="h-20 rounded-2xl bg-muted" />
+        {/* 코칭 카드 */}
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          <div className="h-5 w-24 rounded bg-muted" />
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+              <div key={i} className="h-16 rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
