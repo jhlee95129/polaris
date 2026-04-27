@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Geist_Mono } from "next/font/google"
+import { Geist_Mono, Hi_Melody } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -12,6 +12,13 @@ const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
+
+const fontLogo = Hi_Melody({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-logo",
+})
+
 
 
 export const metadata: Metadata = {
@@ -35,7 +42,7 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable)}
+      className={cn("antialiased", fontMono.variable, fontLogo.variable)}
     >
       <head>
         <link

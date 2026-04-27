@@ -290,7 +290,7 @@ function OnboardingContent() {
             <>
               {/* 브랜드 */}
               <div className="text-center">
-                <img src="/images/logo-text.png" alt="폴라리스" className="h-6 mx-auto" />
+                <span className="font-[family-name:var(--font-logo)] text-xl text-foreground">폴라리스</span>
               </div>
 
               <StepIndicator current={step} />

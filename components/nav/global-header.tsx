@@ -8,7 +8,8 @@ import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
   AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
-import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star } from "lucide-react"
+import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star, Sun, Moon } from "lucide-react"
+import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
 
@@ -30,6 +31,7 @@ export default function GlobalHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const [hasUser, setHasUser] = useState(false)
+  const { theme, setTheme } = useTheme()
 
   useEffect(() => {
     setHasUser(!!getUserId())
@@ -55,7 +57,7 @@ export default function GlobalHeader() {
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="flex items-center px-6 py-3">
           <button onClick={() => router.push("/")} className="flex items-center">
-            <img src="/images/logo-text.png" alt="폴라리스" className="h-5" />
+            <span className="font-[family-name:var(--font-logo)] text-xl text-foreground" style={{ WebkitTextStroke: "1px currentColor" }}>폴라리스</span>
           </button>
         </div>
       </header>
@@ -76,7 +78,7 @@ export default function GlobalHeader() {
       <div className="flex items-center justify-between px-6 py-3">
         {/* 로고 */}
         <button onClick={() => router.push(hasUser ? "/dashboard" : "/")} className="flex items-center">
-          <img src="/images/logo-text.png" alt="폴라리스" className="h-5" />
+          <span className="font-[family-name:var(--font-logo)] text-xl text-foreground" style={{ WebkitTextStroke: "1px currentColor" }}>폴라리스</span>
         </button>
 
         <div className="flex items-center gap-0.5">
@@ -102,6 +104,17 @@ export default function GlobalHeader() {
               )
             })}
           </nav>
+
+          {/* 테마 토글 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Sun className="h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+          </Button>
 
           {/* 구분선 */}
           <div className="mx-1 h-5 w-px bg-border" />
