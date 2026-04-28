@@ -296,10 +296,92 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 0%, oklch(0.75 0.12 75 / 0.04), transparent 70%);
+  background: radial-gradient(circle at 50% 45%, oklch(0.75 0.12 75 / 0.06), transparent 60%);
 }
 .dark .chat-room-ambient::before {
-  background: radial-gradient(ellipse at 50% 0%, oklch(0.72 0.13 70 / 0.06), transparent 70%);
+  background: radial-gradient(circle at 50% 45%, oklch(0.72 0.13 70 / 0.09), transparent 60%);
+}
+
+/* ── 캐릭터별 중앙 글로우 + 도트 색상 ── */
+
+/* 무녀 — 보라 */
+[data-character="mudang"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.55 0.18 300 / 0.12) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.55 0.18 300 / 0.06) 1px, transparent 1px);
+  background-size: 40px 40px, 80px 80px;
+  background-position: 0 0, 20px 20px;
+}
+.dark [data-character="mudang"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.65 0.18 300 / 0.18) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.65 0.18 300 / 0.09) 1px, transparent 1px);
+}
+[data-character="mudang"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.60 0.18 300 / 0.06), transparent 60%);
+}
+.dark [data-character="mudang"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.60 0.18 300 / 0.09), transparent 60%);
+}
+
+/* 장군 — 붉은 기운 */
+[data-character="janggun"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.55 0.18 25 / 0.12) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.55 0.18 25 / 0.06) 1px, transparent 1px);
+  background-size: 40px 40px, 80px 80px;
+  background-position: 0 0, 20px 20px;
+}
+.dark [data-character="janggun"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.65 0.18 25 / 0.18) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.65 0.18 25 / 0.09) 1px, transparent 1px);
+}
+[data-character="janggun"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.60 0.18 25 / 0.06), transparent 60%);
+}
+.dark [data-character="janggun"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.60 0.18 25 / 0.09), transparent 60%);
+}
+
+/* 선녀 — 하늘 */
+[data-character="sunnyeo"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.65 0.14 210 / 0.10) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.65 0.14 210 / 0.05) 1px, transparent 1px);
+  background-size: 40px 40px, 80px 80px;
+  background-position: 0 0, 20px 20px;
+}
+.dark [data-character="sunnyeo"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.70 0.14 210 / 0.16) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.70 0.14 210 / 0.08) 1px, transparent 1px);
+}
+[data-character="sunnyeo"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.70 0.14 210 / 0.06), transparent 60%);
+}
+.dark [data-character="sunnyeo"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.70 0.14 210 / 0.09), transparent 60%);
+}
+
+/* 도깨비 — 초록 */
+[data-character="dokkaebi"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.55 0.16 155 / 0.12) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.55 0.16 155 / 0.06) 1px, transparent 1px);
+  background-size: 40px 40px, 80px 80px;
+  background-position: 0 0, 20px 20px;
+}
+.dark [data-character="dokkaebi"].star-pattern {
+  background-image:
+    radial-gradient(circle, oklch(0.65 0.16 155 / 0.18) 1px, transparent 1px),
+    radial-gradient(circle, oklch(0.65 0.16 155 / 0.09) 1px, transparent 1px);
+}
+[data-character="dokkaebi"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.60 0.16 155 / 0.06), transparent 60%);
+}
+.dark [data-character="dokkaebi"].chat-room-ambient::before {
+  background: radial-gradient(circle at 50% 45%, oklch(0.60 0.16 155 / 0.09), transparent 60%);
 }
 
 @keyframes countDown {

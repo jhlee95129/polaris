@@ -41,7 +41,7 @@ export default function MessageList({ messages, isStreaming, ilgan, displayName,
   }, [messages, isStreaming, scrollTrigger])
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 star-pattern chat-room-ambient">
+    <div className="flex-1 overflow-y-auto p-4 star-pattern chat-room-ambient" data-character={characterId}>
       <div className="mx-auto max-w-3xl space-y-4">
         {messages.map((msg, idx) => (
           <MessageBubble
