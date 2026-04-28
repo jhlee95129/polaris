@@ -96,7 +96,7 @@ function StepIndicator({ current }: { current: number }) {
 function LoadingScreen({ nickname }: { nickname: string }) {
   const [textIdx, setTextIdx] = useState(0)
   const texts = [
-    `${nickname}의 사주를 읽고 있어요...`,
+    `${nickname}님의 사주를 읽고 있어요...`,
     "만세력으로 사주팔자를 계산하고 있어요",
     "오행의 균형을 살피고 있어요",
     "거의 다 됐어!",
@@ -453,6 +453,12 @@ function OnboardingContent() {
                                   placeholder={field.placeholder}
                                   value={field.value}
                                   onChange={e => field.setter(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && field.id === "day" && canProceedStep1()) {
+                                      setError("")
+                                      setStep(2)
+                                    }
+                                  }}
                                   min={field.min}
                                   max={field.max}
                                   className="h-14 rounded-2xl text-center text-base"

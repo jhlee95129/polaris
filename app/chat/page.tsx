@@ -53,9 +53,9 @@ interface UserData {
 }
 
 const PACKAGES = [
-  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "🧧" },
-  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "🧧🧧" },
-  { id: "large", name: "대복채", count: 10, price: "₩3,500", emoji: "🧧🧧🧧" },
+  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "💰💰💰" },
+  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "💰💰💰💰💰" },
+  { id: "large", name: "대복채", count: 10, price: "₩3,500", emoji: "💰💰💰💰💰💰💰💰💰💰" },
 ]
 
 interface SessionItem {
@@ -91,7 +91,7 @@ function BokchaeBadge({ count, animating }: { count: number; animating: boolean 
           )}
           style={animating ? { animation: "shake 0.5s ease-in-out" } : undefined}
         >
-          <span className="text-base">🧧</span> {count}
+          <span className="text-base">💰</span> {count}
         </span>
       </TooltipTrigger>
       <TooltipContent>
@@ -405,7 +405,7 @@ export default function ChatPage() {
       }
       setBokchaeCount(prev => Math.max(0, prev - 1))
       setBokchaeAnimating(true)
-      toast("🧧 복채 -1", { description: `남은 복채: ${bokchaeCount - 1}개`, duration: 2000 })
+      toast("💰 복채 -1", { description: `남은 복채: ${bokchaeCount - 1}개`, duration: 2000 })
       setTimeout(() => setBokchaeAnimating(false), 600)
       await readStream(res, updatedMessages)
 
@@ -482,7 +482,7 @@ export default function ChatPage() {
       // 성공 시 복채 낙관적 차감
       setBokchaeCount(prev => Math.max(0, prev - 1))
       setBokchaeAnimating(true)
-      toast("🧧 복채 -1", { description: `남은 복채: ${bokchaeCount - 1}개`, duration: 2000 })
+      toast("💰 복채 -1", { description: `남은 복채: ${bokchaeCount - 1}개`, duration: 2000 })
       setTimeout(() => setBokchaeAnimating(false), 600)
 
       await readStream(res, updatedMessages)
@@ -598,7 +598,7 @@ export default function ChatPage() {
       const data = await res.json()
       if (data.count !== undefined) {
         setBokchaeCount(data.count)
-        toast.success(`🧧 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
+        toast.success(`💰 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
         setShowEmptyModal(false)
       }
     } catch {
@@ -903,7 +903,7 @@ export default function ChatPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowEmptyModal(false)}>
           <div className="mx-4 w-full max-w-md rounded-2xl bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
             <div className="text-center space-y-1">
-              <p className="text-4xl">🧧</p>
+              <p className="text-4xl">💰</p>
               <h3 className="text-lg font-bold">복채가 없어요</h3>
               <p className="text-sm text-muted-foreground">질문 1개에 복채 1개가 필요해요</p>
             </div>

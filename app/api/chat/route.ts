@@ -115,10 +115,12 @@ export async function POST(request: NextRequest) {
     let toolInput = ""
     let sajuBasis: Record<string, unknown> | null = null
 
+    let closed = false
     const readable = new ReadableStream({
       async start(controller) {
         try {
           for await (const event of stream) {
+            if (closed) break
             if (event.type === "content_block_delta") {
               if (event.delta.type === "text_delta") {
                 const text = event.delta.text
@@ -131,6 +133,8 @@ export async function POST(request: NextRequest) {
               }
             }
           }
+
+          if (closed) return
 
           // tool input 파싱
           if (toolInput) {
@@ -170,14 +174,20 @@ export async function POST(request: NextRequest) {
             })}\n\n`)
           )
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
+          closed = true
           controller.close()
         } catch (err) {
           console.error("스트리밍 오류:", err)
-          const errMsg = err instanceof Error ? err.message : "스트리밍 오류"
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`)
-          )
-          controller.close()
+          if (!closed) {
+            const errMsg = err instanceof Error ? err.message : "스트리밍 오류"
+            try {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`)
+              )
+            } catch { /* controller already closed */ }
+            closed = true
+            try { controller.close() } catch { /* already closed */ }
+          }
         }
 
         // 스트림 완료 후 어시스턴트 응답 DB 저장

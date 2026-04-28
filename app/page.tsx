@@ -149,7 +149,7 @@ function ChatDemo() {
                 </p>
               </div>
               <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground">
-                <BookOpen className="h-3 w-3" /> 사주적 근거 보기
+                <BookOpen className="h-3 w-3" /> 상세 분석 보기
               </span>
             </div>
           </div>

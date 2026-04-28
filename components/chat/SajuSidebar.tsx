@@ -207,7 +207,7 @@ export default function SajuSidebar({
           className="w-full justify-start text-sm h-11 rounded-xl"
           onClick={() => router.push("/bokchae")}
         >
-          <span className="text-base mr-1">🧧</span> 복채 충전
+          <span className="text-base mr-1">💰</span> 복채 충전
         </Button>
         <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
           <AlertDialogTrigger asChild>

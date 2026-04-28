@@ -58,9 +58,9 @@ function getIlganEmoji(ilgan: string): string {
 /* ── 복채 패키지 ── */
 
 const PACKAGES = [
-  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "🧧" },
-  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "🧧🧧" },
-  { id: "large", name: "대복채", count: 10, price: "₩3,000", emoji: "🧧🧧🧧" },
+  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "💰" },
+  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "💰💰" },
+  { id: "large", name: "대복채", count: 10, price: "₩3,000", emoji: "💰💰💰" },
 ]
 
 /* ── 메인 컴포넌트 ── */
@@ -138,7 +138,7 @@ export default function DashboardPage() {
       const data = await res.json()
       if (data.count !== undefined) {
         setUser(prev => prev ? { ...prev, bokchae_count: data.count } : prev)
-        toast.success(`🧧 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
+        toast.success(`💰 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
         setShowEmptyModal(false)
       }
     } catch {
@@ -225,12 +225,12 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">
-            {ilganEmoji} {displayName}님
+            {ilganEmoji} {displayName}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{greeting}</p>
         </div>
         <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-          🧧 복채 {user.bokchae_count}
+          💰 복채 {user.bokchae_count}
         </span>
       </div>
 
@@ -433,7 +433,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowEmptyModal(false)}>
           <div className="mx-4 w-full max-w-md rounded-2xl bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
             <div className="text-center space-y-1">
-              <p className="text-4xl">🧧</p>
+              <p className="text-4xl">💰</p>
               <h3 className="text-lg font-bold">복채가 없어요</h3>
               <p className="text-sm text-muted-foreground">질문 1개에 복채 1개가 필요해요</p>
             </div>

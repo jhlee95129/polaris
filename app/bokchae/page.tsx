@@ -9,9 +9,9 @@ import { toast } from "sonner"
 /* ── 상점 패키지 데이터 ── */
 
 const PACKAGES = [
-  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "🧧" },
-  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "🧧🧧" },
-  { id: "large", name: "대복채", count: 10, price: "₩3,500", emoji: "🧧🧧🧧" },
+  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "💰💰💰" },
+  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "💰💰💰💰💰" },
+  { id: "large", name: "대복채", count: 10, price: "₩3,500", emoji: "💰💰💰💰💰💰💰💰💰💰" },
 ]
 
 export default function BokchaeStorePage() {
@@ -137,7 +137,7 @@ export default function BokchaeStorePage() {
 
       {/* 상점 */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-lg">🧧 복채 충전</h2>
+        <h2 className="font-semibold text-lg">💰 복채 충전</h2>
         <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-gradient-to-r from-amber-50/80 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 px-4 py-3 text-center space-y-1">
           <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
             🎉 오픈 기념 무료 충전 이벤트
@@ -179,7 +179,7 @@ export default function BokchaeStorePage() {
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2 text-sm text-muted-foreground">
         <p className="font-medium text-foreground">복채란?</p>
         <div className="flex items-start gap-2">
-          <span>🧧</span>
+          <span>💰</span>
           <span>상담 메시지 1회에 복채 1개를 사용해</span>
         </div>
         <div className="flex items-start gap-2">

@@ -24,6 +24,33 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 
+/** 경량 인라인 마크다운 → ReactNode 변환 */
+function renderInlineMarkdown(text: string) {
+  const lines = text.split("\n")
+  const result: React.ReactNode[] = []
+
+  lines.forEach((line, li) => {
+    if (li > 0) result.push("\n")
+    // ### / ## 헤딩 → bold 텍스트로 변환
+    const heading = line.match(/^#{2,3}\s+(.+)$/)
+    if (heading) { result.push(<strong key={`h${li}`} className="text-xs font-semibold text-foreground/80">{heading[1]}</strong>); return }
+
+    // 인라인: **bold**, *italic*, [text](url)
+    const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/)
+    parts.forEach((seg, si) => {
+      const k = `${li}-${si}`
+      const bold = seg.match(/^\*\*(.+)\*\*$/)
+      if (bold) { result.push(<strong key={k} className="font-semibold text-foreground/90">{bold[1]}</strong>); return }
+      const italic = seg.match(/^\*(.+)\*$/)
+      if (italic) { result.push(<em key={k}>{italic[1]}</em>); return }
+      const link = seg.match(/^\[(.+)\]\((.+)\)$/)
+      if (link) { result.push(<a key={k} href={link[2]} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{link[1]}</a>); return }
+      result.push(seg)
+    })
+  })
+  return result
+}
+
 const TOPIC_META: Record<string, { label: string; emoji: string }> = {
   career: { label: "직업·진로", emoji: "💼" },
   relationship: { label: "인간관계", emoji: "🤝" },
@@ -146,16 +173,17 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
             ) : basis ? (
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <button className="text-xs text-primary hover:text-primary/90 font-medium transition-colors inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/15 px-3.5 py-1.5 border border-primary/20">
-                  <span>📖</span>
-                  <span>사주적 근거 보기</span>
+                <button className="group text-xs font-medium transition-all inline-flex items-center gap-1.5 rounded-lg bg-muted/60 hover:bg-muted px-3 py-1.5 text-muted-foreground hover:text-foreground border border-border/50 hover:border-border shadow-sm hover:shadow">
+                  <svg className="h-3.5 w-3.5 transition-transform group-hover:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                  <span>상세 분석 보기</span>
+                  <svg className="h-3 w-3 opacity-40 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                 </button>
               </SheetTrigger>
               <SheetContent side="right" className="overflow-y-auto !w-[92%] sm:!w-[520px] lg:!w-[560px] p-0">
                 {/* 헤더 */}
                 <SheetHeader className="px-6 pt-6 pb-5 border-b border-border bg-gradient-to-b from-amber-50/50 to-transparent dark:from-amber-950/20">
                   <SheetTitle className="flex items-center gap-2.5 text-lg">
-                    <span className="text-xl">📊</span> 코칭 리포트
+                    <span className="text-xl">📊</span> 상세 분석
                   </SheetTitle>
                   <SheetDescription className="text-xs text-muted-foreground">
                     이 응답의 명리학적 분석 근거와 코칭 내용
@@ -283,8 +311,8 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
                   {/* ── 5. 참조한 명리 지식 (RAG) ── */}
                   {basis.ilganChunk && (
                     <div className="rounded-2xl border border-orange-200/50 dark:border-orange-800/30 bg-orange-50/30 dark:bg-orange-950/20 p-4">
-                      <h3 className="text-xs font-bold flex items-center gap-1.5 mb-2 text-orange-800 dark:text-orange-200">
-                        <span className="text-lg align-middle">📖</span> 참조한 명리 지식
+                      <h3 className="text-sm font-bold flex items-center gap-1.5 mb-2 text-orange-800 dark:text-orange-200">
+                        <span className="text-lg align-middle">🌟</span> 폴라리스의 풀이
                       </h3>
                       <div className="space-y-2">
                         {basis.ilganChunk.split("\n\n---\n\n").map((chunk, i) => {
@@ -294,12 +322,12 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
                           return (
                             <div key={i} className={i > 0 ? "border-t border-border/50 pt-2" : ""}>
                               {title && (
-                                <p className="text-xs font-semibold mb-1 flex items-center gap-1">
+                                <p className="text-[13px] font-semibold mb-1 flex items-center gap-1 text-orange-700 dark:text-orange-300">
                                   📄 {title}
                                 </p>
                               )}
                               <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                                {body}
+                                {renderInlineMarkdown(body)}
                               </p>
                             </div>
                           )
