@@ -290,7 +290,7 @@ function OnboardingContent() {
             <>
               {/* 브랜드 */}
               <div className="text-center">
-                <span className="font-[family-name:var(--font-logo)] text-xl text-foreground">폴라리스</span>
+                <span className="font-[family-name:var(--font-logo)] text-2xl text-foreground" style={{ WebkitTextStroke: "1px currentColor" }}>폴라리스</span>
               </div>
 
               <StepIndicator current={step} />

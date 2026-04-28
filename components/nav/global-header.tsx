@@ -57,7 +57,7 @@ export default function GlobalHeader() {
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="flex items-center px-6 py-3">
           <button onClick={() => router.push("/")} className="flex items-center">
-            <span className="font-[family-name:var(--font-logo)] text-xl text-foreground" style={{ WebkitTextStroke: "1px currentColor" }}>폴라리스</span>
+            <span className="font-[family-name:var(--font-logo)] text-2xl text-foreground" style={{ WebkitTextStroke: "1px currentColor" }}>폴라리스</span>
           </button>
         </div>
       </header>
@@ -78,7 +78,7 @@ export default function GlobalHeader() {
       <div className="flex items-center justify-between px-6 py-3">
         {/* 로고 */}
         <button onClick={() => router.push(hasUser ? "/dashboard" : "/")} className="flex items-center">
-          <span className="font-[family-name:var(--font-logo)] text-xl text-foreground" style={{ WebkitTextStroke: "1px currentColor" }}>폴라리스</span>
+          <span className="font-[family-name:var(--font-logo)] text-2xl text-foreground" style={{ WebkitTextStroke: "1px currentColor" }}>폴라리스</span>
         </button>
 
         <div className="flex items-center gap-0.5">
