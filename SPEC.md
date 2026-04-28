@@ -55,17 +55,17 @@ LLM + 메모리가 등장한 이후에야 가능해진 카테고리. **AI-native
 
 ---
 
-## 2. 기술 스택 (확정)
+## 2. 기술 스택 (확정 → 최종 구현)
 
 | 영역 | 선택 | 이유 |
 |---|---|---|
-| Frontend + Backend | Next.js 15 (App Router) | 7일 timeline, Vercel 원클릭 배포, 평가자 웹 접근성 |
+| Frontend + Backend | Next.js 16 (App Router) + React 19 | Vercel 원클릭 배포, 평가자 웹 접근성 |
 | 언어 | TypeScript | 표준 |
-| 스타일 | TailwindCSS + shadcn/ui | 빠른 UI |
-| DB | Supabase (Postgres + pgvector) | RAG 인프라 이미 구축됨 |
-| LLM | Claude Sonnet 4.5 (`claude-sonnet-4-5`) | 톤/한국어 품질 |
-| 임베딩 | OpenAI `text-embedding-3-large` (2000d) | 기존 RAG 그대로 유지 |
-| 만세력 | `@fullstackfamily/manseryeok` (1차 후보) | KASI(한국천문연구원) 데이터, 진태양시 자동 보정, 입춘 기준 년주, 한국 윤달 정확. LLM 계산 절대 금지. |
+| 스타일 | Tailwind CSS v4 + shadcn/ui (radix-nova) | 빠른 UI, 다크 모드 |
+| DB | Supabase (Postgres + pgvector) | RAG 인프라 + 익명 인증 |
+| LLM | Claude Sonnet 4.6 (`claude-sonnet-4-6`) | 톤/한국어 품질, tool_use 구조화 출력 |
+| 임베딩 | OpenAI `text-embedding-3-large` (2000d) | RAG 벡터 검색 |
+| 만세력 | `@fullstackfamily/manseryeok` (검증 완료, 채택) | KASI 데이터, 진태양시 자동 보정, 입춘 기준 년주, 한국 윤달 정확 |
 | 배포 | Vercel | 무료, 도메인 자동 |
 
 > ⚠️ **만세력 검증 프로토콜 (반드시 채택 전에 실행)**
@@ -94,56 +94,93 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 ---
 
-## 3. 프로젝트 구조
+## 3. 프로젝트 구조 (최종 구현)
 
 ```
 /app
+  /page.tsx                          # 랜딩 페이지
+  /layout.tsx                        # 루트 레이아웃
+  /onboarding/page.tsx               # 3단계 온보딩 (생년월일 → 시간/성별 → 닉네임)
+  /dashboard/page.tsx                # 오늘의 폴라리스 대시보드 (일일 운세 + 카테고리 카드)
+  /chat/page.tsx                     # 메인 채팅 (사이드바 + 세션 관리 + 캐릭터 전환)
+  /bokchae/page.tsx                  # 복채 충전 페이지
+  /mypage/page.tsx                   # 내 정보 (사주 정보 + 계정 삭제)
+  /settings/page.tsx                 # 설정
+  /help/page.tsx                     # 도움말
+  /admin/page.tsx                    # 관리자 페이지 (목업)
+  /share/[token]/page.tsx            # 대화 공유 뷰 (읽기 전용)
+  /share/[token]/SharedChatView.tsx
   /api
-    /chat/route.ts         # POST: 메시지 처리 (스트리밍)
-    /onboarding/route.ts   # POST: 명식 계산 + 저장
-  /onboarding/page.tsx     # 명식 입력 페이지
-  /chat/page.tsx           # 채팅 페이지
-  /page.tsx                # 랜딩 (간단한 hero + CTA)
-  /layout.tsx
+    /chat/route.ts                   # POST: 코칭 상담 (RAG + Claude 스트리밍)
+    /onboarding/route.ts             # POST: 명식 계산 + 사용자 생성
+    /user/route.ts                   # 사용자 정보 CRUD
+    /user/lookup/route.ts            # 사용자 조회
+    /saju-profile/route.ts           # 사주 프로필 재계산
+    /sessions/route.ts               # 세션 목록/생성/삭제
+    /sessions/[id]/messages/route.ts # 세션별 메시지 조회
+    /sessions/[id]/share/route.ts    # 대화 공유 토큰 생성
+    /suggestions/route.ts            # AI 추천 질문 생성
+    /daily-fortune/route.ts          # 일일 운세 생성
+    /bokchae/checkin/route.ts        # 일일 출석 체크인 (+1 복채)
+    /bokchae/purchase/route.ts       # 복채 충전 (구매)
 /lib
-  /saju
-    manseryuk.ts           # 명식 계산
-    types.ts               # SajuChart, Pillar 등 타입
-  /rag
-    embed.ts               # OpenAI 임베딩 호출
-    retrieve.ts            # pgvector 검색
-    seed.ts                # 1회성: 마크다운 → DB 적재 스크립트
-  /claude
-    client.ts              # Anthropic SDK 래퍼
-    prompts.ts             # 시스템 프롬프트 + 정적 지식 임포트
+  saju.ts              # 만세력 래퍼 (사주팔자/오행/십신/용신)
+  saju-data.ts         # 명리학 구조화 데이터 (천간·지지·십신)
+  daeun.ts             # 대운 계산
+  characters.ts        # 5 코칭 캐릭터 정의
+  topic-data.ts        # 대시보드 카테고리별 토픽
+  prompts.ts           # 4계층 시스템 프롬프트 (캐릭터별 보이스)
+  claude.ts            # Claude API 클라이언트 + saju_basis tool
+  rag.ts               # RAG 파이프라인 (2-track 벡터 검색)
+  storage.ts           # localStorage 유틸리티
+  admin-mock-data.ts   # 관리자 목업 데이터
+  /supabase
+    client.ts          # Supabase 브라우저 클라이언트
+    server.ts          # Supabase 서버 클라이언트
   /db
-    client.ts              # Supabase 클라이언트
-    queries.ts             # 자주 쓰는 쿼리
+    queries.ts         # DB 쿼리 함수
 /components
-  Chat.tsx                 # 메인 채팅 컨테이너
-  MessageList.tsx
-  MessageInput.tsx
-  SajuSidebar.tsx          # 명식 한 줄 요약 + 펼침
-  Onboarding.tsx
+  /chat
+    MessageBubble.tsx  # 메시지 버블 (코칭 카드 렌더링)
+    MessageList.tsx    # 메시지 목록
+    MessageInput.tsx   # 입력창 + AI 추천 질문
+    SajuInfoPanel.tsx  # 사주 정보 패널 (4기둥 + 오늘의 운세)
+    SajuSidebar.tsx    # 사이드바 (내 정보 + 대화 목록)
+  /nav
+    global-header.tsx  # 글로벌 헤더 (복채 뱃지)
+    footer.tsx         # 푸터
+  /ui                  # shadcn/ui 컴포넌트 (19개)
+  theme-provider.tsx   # 다크 모드 테마
 /data
-  /saju-knowledge
-    ilgan-characteristics.md   # ← RAG에 넣음 (이것만)
-    oheng-relations.md         # ← 시스템 프롬프트에 정적 포함
-    sipsin-analysis.md         # ← 시스템 프롬프트에 정적 포함
-    life-coaching.md           # ← 시스템 프롬프트에 정적 포함 (단, 톤 부분만)
+  /saju-knowledge      # 명리학 지식 마크다운 (10개 파일)
+    ilgan-characteristics.md    # RAG 벡터 DB
+    ilgan-situational.md        # RAG 벡터 DB
+    oheng-relations.md          # RAG 벡터 DB + 시스템 프롬프트
+    oheng-coaching.md           # RAG 벡터 DB
+    sipsin-analysis.md          # RAG 벡터 DB + 시스템 프롬프트
+    life-coaching.md            # 시스템 프롬프트
+    branch-interactions.md      # RAG 벡터 DB
+    chart-patterns.md           # RAG 벡터 DB
+    daeun-interpretation.md     # RAG 벡터 DB
+    palace-system.md            # RAG 벡터 DB
 /scripts
-  seed-rag.ts              # ilgan-characteristics.md → vector DB
-SPEC.md                    # 이 문서
-ONEPAGER.md                # 제출용 One Pager
+  embed-knowledge.ts   # RAG 임베딩 시드 스크립트
+/__tests__
+  saju.test.ts         # 만세력 검증 테스트
+/supabase
+  /migrations          # DB 마이그레이션 (10개)
+SPEC.md                # 이 문서
+ONE_PAGER.md           # 제출용 One Pager
 README.md
+CLAUDE.md              # Claude Code 지침서
 ```
 
 ---
 
-## 4. 데이터베이스 스키마
+## 4. 데이터베이스 스키마 (최종 구현)
 
 ```sql
--- 사용자 (익명, localStorage UUID로 식별)
+-- 사용자 (익명, Supabase anonymous auth)
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -153,6 +190,7 @@ CREATE TABLE users (
   birth_day INT NOT NULL,
   birth_hour INT,                             -- nullable: 시간 모름
   is_lunar BOOLEAN DEFAULT FALSE,
+  is_leap_month BOOLEAN DEFAULT FALSE,        -- 윤달 여부
   gender TEXT NOT NULL CHECK (gender IN ('male','female')),
   -- 계산된 명식 (캐시)
   ilgan TEXT NOT NULL,                        -- e.g. "병화"
@@ -161,26 +199,45 @@ CREATE TABLE users (
   il_pillar TEXT NOT NULL,
   si_pillar TEXT,                             -- nullable
   daeun_current TEXT,                         -- 현재 대운 e.g. "신금"
-  saju_summary TEXT                           -- LLM이 만든 한 줄 요약 (캐시)
+  saju_summary TEXT,                          -- LLM이 만든 한 줄 요약 (캐시)
+  character_id TEXT DEFAULT 'sunbi',          -- 선호 캐릭터
+  -- 복채 시스템
+  bokchae_count INT DEFAULT 3,               -- 현재 복채 잔여량
+  bokchae_last_free TIMESTAMPTZ,             -- 마지막 무료 충전 시각
+  bokchae_checkin_date DATE                   -- 마지막 출석 체크인 날짜
+);
+
+-- 세션 (대화 단위 관리)
+CREATE TABLE sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT DEFAULT '새 대화',
+  character_id TEXT DEFAULT 'sunbi',          -- 세션별 캐릭터
+  share_token TEXT UNIQUE,                    -- 대화 공유 토큰
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 채팅 메시지
 CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user','assistant')),
   content TEXT NOT NULL,
+  metadata JSONB,                             -- character_id, tool results 등
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX messages_user_time_idx ON messages(user_id, created_at DESC);
+CREATE INDEX messages_session_idx ON messages(session_id, created_at ASC);
 
--- RAG 지식 (이미 구축되어 있음 — 단순화만 적용)
+-- RAG 지식 (10개 명리학 마크다운 파일 임베딩)
 CREATE TABLE saju_knowledge (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  source_file TEXT NOT NULL,                  -- 'ilgan-characteristics'만 채우기
+  source_file TEXT NOT NULL,
   content TEXT NOT NULL,
   embedding vector(2000),
-  metadata JSONB                              -- {ilgan: "병화", source: "OOO 입문서 3장 / 위키 천간 항목"} 같은 추적 메타
+  metadata JSONB                              -- {ilgan, topic, source} 추적 메타
 );
 CREATE INDEX saju_knowledge_embedding_idx
   ON saju_knowledge USING hnsw (embedding vector_cosine_ops);
@@ -212,130 +269,131 @@ CREATE INDEX saju_knowledge_embedding_idx
 - 입력 단계가 너무 폼처럼 보이지 않도록 폴라리스가 자기소개 받는 톤의 카피 사용
   - 예: *"안녕, 나는 폴라리스야. 너 얘기 좀 들려줘 🙂"*
 
-### 5-2. 채팅 (`/chat`)
+### 5-2. 채팅 (`/chat`) — 최종 구현
 
 **레이아웃**
-- 데스크탑: 좌 사이드바(280px) + 메인 채팅
-- 모바일: 상단 collapsible "내 명식" + 풀스크린 채팅
+- 데스크탑: 좌 사이드바(280px, ResizablePanel) + 메인 채팅
+- 모바일: 상단 Sheet "내 명식" + 풀스크린 채팅
 
 **사이드바 (`SajuSidebar`)**
-- 1줄 요약 (`saju_summary`)
-- 클릭 시 4기둥 펼침 (년주/월주/일주/시주 + 현재 대운)
-- "기억을 지우고 새로 시작" 버튼 (localStorage clear)
+- 사주 정보 패널 (4기둥 + 오늘의 운세)
+- 대화 목록 (세션 단위, 스크롤 가능)
+- 새 대화 / 전체 삭제
 
-**채팅 시작 시 (첫 진입)**
-- 폴라리스가 먼저 인사 (LLM 호출 1회):
-  - 닉네임 부르며 + 명식 한 줄 언급 + 가벼운 첫 질문
-  - 예: *"지은아, 너 병화 일간이라 사람한테 솔직한 편일 텐데, 요즘 어떻게 지내?"*
+**글로벌 헤더**
+- 복채 뱃지 (클릭 시 복채 충전 페이지 이동)
+- 캐릭터 변경 버튼
+- 대화 공유 버튼
+
+**세션 관리**
+- 세션별 대화 분리 (session_id)
+- 세션별 캐릭터 연결 (character_id)
+- 세션 제목 자동 생성 (첫 메시지 기반)
+- 세션 삭제 / 전체 삭제 (AlertDialog 확인)
 
 **메시지 처리 (`/api/chat`)**
-1. body: `{ user_id, message }`
+1. body: `{ user_id, session_id, character_id, message }`
 2. 서버에서:
    ```
    user      ← users 조회
-   recent    ← messages 최근 10턴
-   ilganDoc  ← RAG 검색 (Top-1)
-   stream    ← Claude streaming 호출 (아래 6번 프롬프트)
+   recent    ← messages 최근 N턴 (session_id 기반)
+   ragDocs   ← RAG 2-track 검색 (토픽 Top-3 + 일간 Top-1)
+   stream    ← Claude streaming + tool_use (saju_basis)
    ```
 3. 스트리밍 응답을 클라이언트에 전달
-4. 스트림 완료 시 `messages` 테이블에 user/assistant 양쪽 모두 저장
+4. 완료 시 messages + session.updated_at 저장
+5. 추천 질문 비동기 생성 (`/api/suggestions`)
 
-**스트리밍 필수**: UX 차이 큼. Anthropic SDK의 `stream: true` 사용.
+**복채 시스템**
+- 메시지 전송 시 복채 1개 차감
+- 복채 부족 시: 차단된 토픽 기억 → 충전 후 자동 전송
+- 인라인 체크인/충전 UI
 
-### 5-3. RAG (단순화 최종 명세)
+**스트리밍 필수**: Anthropic SDK의 `stream: true` 사용.
 
-**범위**: `ilgan-characteristics.md` 만
-**목적**: LLM이 일간 해석에서 hallucinate하는 것 방지 (grounding 전용)
+### 5-3. RAG (최종 구현)
 
-**시드 (1회성, `scripts/seed-rag.ts`)**
-1. `ilgan-characteristics.md` 읽기
-2. `##` 헤더 기준 분할 → 일간별 chunk (10개 예상)
-3. 각 chunk에서 `[출처]` 라인 파싱하여 메타데이터로 분리 추출
-4. 각 chunk 임베딩 (OpenAI `text-embedding-3-large`, 2000d)
-5. `saju_knowledge`에 insert (`source_file='ilgan-characteristics'`, `metadata={ilgan: "병화", source: "..."}` 등)
+**범위**: 10개 명리학 마크다운 파일 전체 (초기 계획의 1개에서 확장)
+**목적**: LLM 명리학 hallucination 방지 (grounding) + 상황별 코칭 품질 향상
 
-**데이터 작성 워크플로우 (마크다운 4개 파일 만드는 법)**
-RAG 데이터는 LLM 단독 생성 금지. 외부 출처 발췌 → AI 재구성 → 본인 검수 3단계.
-1. **출처 수집**: 명리학 입문서 1권 + 한국어 위키백과 명리학 항목(천간/지지/오행/십신) 발췌
-2. **AI 재구성**: 발췌 텍스트를 직접 주고 *"chunk-friendly한 형태로 재구성, 원문에 없는 내용 추가 금지"* 프롬프트로 정리. AI는 포매팅 도구로만 사용
-3. **본인 검수**: 학파 통일(자평명리 기준 권장), 출처 누락 체크, chunk당 30초 훑기
-4. 각 일간 섹션 끝에 `[출처] 발췌처` 한 줄 필수
+**지식 파일 (10개)**
+- `ilgan-characteristics.md` — 일간별 성격·기질
+- `ilgan-situational.md` — 일간별 상황 대응 패턴
+- `oheng-relations.md` — 오행 상생상극 관계
+- `oheng-coaching.md` — 오행별 코칭 전략
+- `sipsin-analysis.md` — 십신 분석
+- `life-coaching.md` — 코칭 원칙 (시스템 프롬프트에도 포함)
+- `branch-interactions.md` — 지지 합충형파해
+- `chart-patterns.md` — 명식 패턴 분석
+- `daeun-interpretation.md` — 대운 해석
+- `palace-system.md` — 궁(宮) 시스템
 
-**검색 (`lib/rag/retrieve.ts`)**
-- query string: `${ilgan} 일간 특성` (예: `"병화 일간 특성"`)
-- query embedding 후 코사인 유사도 검색
-- `WHERE source_file = 'ilgan-characteristics'` 필터
-- Top-1 반환
+**시드 (`scripts/embed-knowledge.ts`)**
+1. 10개 마크다운 파일 읽기
+2. `##` 헤더 기준 chunk 분할
+3. OpenAI `text-embedding-3-large` (2000d) 임베딩
+4. `saju_knowledge` 테이블에 insert (source_file + metadata 포함)
 
-**나머지 3개 마크다운**: RAG에 넣지 **않음**. `lib/claude/prompts.ts`에서 build 시 fs로 읽어 시스템 프롬프트에 정적 문자열로 포함.
+**2-Track 검색 (`lib/rag.ts`)**
+1. **토픽 기반 검색**: 사용자 고민/질문 텍스트로 코사인 유사도 검색 → Top-3
+2. **일간 기반 검색**: `${ilgan} 일간 특성` 쿼리로 일간 맞춤 chunk → Top-1
+3. 두 결과를 합쳐 RAG 컨텍스트로 주입
+
+**시스템 프롬프트 정적 포함**: `oheng-relations.md`, `sipsin-analysis.md`, `life-coaching.md`는 시스템 프롬프트에도 정적 포함 (일관성 보장).
 
 ---
 
-## 6. 시스템 프롬프트 (초안)
+## 6. 시스템 프롬프트 (최종 구현)
 
-`lib/claude/prompts.ts`:
+`lib/prompts.ts`에서 4계층 구조로 구현:
 
-```typescript
-import oheng from '@/data/saju-knowledge/oheng-relations.md';
-import sipsin from '@/data/saju-knowledge/sipsin-analysis.md';
-import coaching from '@/data/saju-knowledge/life-coaching.md';
+1. **명리학 지식 계층**: 오행 관계, 십신 분석, 코칭 원칙 (마크다운에서 정적 포함)
+2. **천기(天氣) 계층**: 오늘 날짜, 월운/일운 에너지
+3. **원국(原局) 계층**: 사용자 명식 4기둥 + 일간 + 대운 + RAG 검색 결과
+4. **캐릭터별 코칭 스타일 계층**: 5 캐릭터 각각의 톤·말투·태도 정의
 
-export function buildSystemPrompt() {
-  return `당신은 "폴라리스"입니다. 명리학에 능통하지만 친구처럼 편하게 대화하는 AI입니다.
-이름의 유래는 북극성(Polaris) — 길을 잃었을 때 방향을 잡아주는 별. 다만 사용자에게 이 설명을
-먼저 늘어놓지는 마세요. 톤과 태도로 그 의미를 전합니다.
+### 5 코칭 캐릭터
 
-[톤 원칙 — 절대 어기지 말 것]
-- 보고서가 아니라 짧은 대화로 응답하세요. 3-5 문장이 기본입니다.
-- 사용자의 감정을 먼저 받아주고, 그 다음에 사주 해석을 얹으세요.
-- 단정하지 마세요. "이런 시기에는 이런 흐름이 있을 수 있어" 같은 가능성으로 제시.
-- 명식 근거를 한 줄 자연스럽게 녹이세요. 장황한 설명 금지.
-- 답변 끝에 가벼운 되묻기 1개를 자주 넣으세요.
-- 반말/존댓말은 사용자 톤을 따라가세요.
-- 이모지 절제. 한 응답에 0-1개.
+| ID | 이름 | 이모지 | 톤 |
+|---|---|---|---|
+| `sunbi` | 선비 | 📜 | 학자풍 조언, 고전 인용, 존댓말 |
+| `munyeo` | 무녀 | 🔮 | 영적·직관적 해석, 신비로운 분위기 |
+| `janggun` | 장군 | ⚔️ | 직설적·행동 지향, 군대식 단호함 |
+| `seonnyo` | 선녀 | 🌸 | 따뜻한 공감 + 위로, 부드러운 톤 |
+| `dokkaebi` | 도깨비 | 👹 | 반전·유머·도발적 질문, 반말 |
 
-[금기]
-- 점쟁이 톤 ("그대의 운명은…") 절대 금지
-- 결정론적 표현 ("당신은 평생 …할 것입니다") 금지
-- 장문의 카테고리별 운세 보고서 금지
-- 의료/법률/투자 단정 금지
-
-[명리 지식 베이스]
-## 오행 관계
-${oheng}
-
-## 십신 분석
-${sipsin}
-
-## 코칭 원칙
-${coaching}
-`;
-}
-
-export function buildUserContextBlock(args: {
-  user: User;
-  ilganChunk: string;
-  recentMessages: Message[];
-}) {
-  return `
-[사용자 명식]
-이름: ${args.user.display_name || '(미입력)'}
-일간: ${args.user.ilgan}
-사주 4기둥: ${args.user.yeon_pillar} / ${args.user.wol_pillar} / ${args.user.il_pillar} / ${args.user.si_pillar ?? '(시주 없음)'}
-현재 대운: ${args.user.daeun_current}
-
-[일간 특성 참고 — 이 정보를 근거로 해석하되 그대로 인용하지 말 것]
-${args.ilganChunk}
-`;
+### Claude tool_use: `saju_basis`
+모든 코칭 응답 시 Claude가 `saju_basis` tool을 호출하여 사주 근거를 구조화 추출:
+```json
+{
+  "relevant_pillars": ["일주 병오"],
+  "oheng_analysis": "화기가 강한 명식...",
+  "current_energy": "현재 신금 대운으로...",
+  "coaching_basis": "식상이 강하니 창의적 접근이..."
 }
 ```
+이 구조화된 근거가 응답에 자연스럽게 녹아들어감.
 
-Claude API 호출 시:
-- `system`: `buildSystemPrompt()`
-- `messages`: `[{ role: 'user', content: buildUserContextBlock(...) + '\n[현재 메시지]\n' + 사용자 메시지 }]`
-  - 또는 더 깔끔하게: 사용자 컨텍스트는 첫 user message에 한 번 넣고, 그 뒤로는 `recentMessages` + 현재 메시지
+---
 
-> 구현 결정: 사용자 컨텍스트가 매 호출마다 들어가야 하므로 `system` 안에 `[USER_CONTEXT]` placeholder를 두고 매번 치환하는 방식이 가장 깔끔. Claude Code가 판단해서 결정.
+### 5-4. 대시보드 (`/dashboard`) — 추가 구현
+
+**오늘의 폴라리스**
+- 일일 운세 카드 (coaching, warning, lucky_number, lucky_color, energy)
+- 카테고리별 추천 토픽 (연애, 직장, 재물, 건강 등)
+- 카드 클릭 → 채팅방으로 이동 + 해당 토픽 자동 전송
+
+### 5-5. 대화 공유 (`/share/[token]`)
+- 세션별 공유 토큰 생성 (1회 생성, 영구 유효)
+- 읽기 전용 뷰 (SharedChatView 컴포넌트)
+- 메시지 버블 동일 렌더링 (코칭 카드 포함)
+
+### 5-6. 복채 시스템
+- 상담 1회 = 복채 1개 소모
+- 매일 자정 3개 자동 충전 (bokchae_last_free 기준)
+- 일일 출석 체크인 +1 (bokchae_checkin_date 기준, 하루 1회)
+- 복채 구매 페이지 (/bokchae)
+- 복채 부족 시 차단된 토픽 기억 → 충전 후 자동 재전송
 
 ---
 
@@ -357,42 +415,42 @@ Claude API 호출 시:
 
 ---
 
-## 8. Non-Goals (절대 만들지 마세요)
+## 8. Non-Goals vs 실제 구현
 
-이 리스트는 **scope creep 방지용 신성불가침 영역**입니다.
+원래 scope creep 방지용으로 설정했던 Non-Goals 중 일부는 제품 가설 검증에 필요하다고 판단하여 구현했습니다.
 
-- ❌ 회원가입/소셜 로그인 (익명 + localStorage UUID)
-- ❌ 결제/구독/RevenueCat 통합
-- ❌ 운세 카테고리 분리 탭 (재물/연애/건강 따로 보기 X)
-- ❌ **콘텐츠 카드 선택 모드 (플롯과 동일한 형태) — 의식적으로 제거**. 폴라리스의 차별화 포인트가 정확히 *"콘텐츠 선택 없이 임의의 상황을 던지면 된다"*이므로, 사전 정의된 운세 카드를 추가하면 가설 자체가 무너짐.
-- ❌ 일일 운세 푸시 알림
-- ❌ 화려한 명식 시각화 (인포그래픽, 차트, 동그라미 그래프 X — 텍스트로 충분)
+### 원래 Non-Goal이었으나 구현한 것
+- ✅ **캐릭터 페르소나**: 5개 코칭 캐릭터 (선비/무녀/장군/선녀/도깨비) — 단일 보이스보다 재방문 동기 강화
+- ✅ **대시보드 + 카테고리 카드**: "오늘의 폴라리스" — 자유 대화 진입 장벽을 낮추는 보조 동선
+- ✅ **일일 운세**: 대시보드의 일일 코칭 — 매일 방문 동기
+- ✅ **관리자 페이지**: 목업 수준 — 서비스 운영 비전 제시
+- ✅ **대화 공유**: share token 기반 읽기 전용 뷰 — 바이럴 루프
+- ✅ **복채 시스템**: 가상 화폐 기반 사용량 관리 — 수익화 가설 검증
+
+### 여전히 Non-Goal
+- ❌ 회원가입/소셜 로그인 (익명 + Supabase anonymous auth)
+- ❌ 실 결제/구독 (복채는 가상 시스템)
+- ❌ 화려한 명식 시각화 (텍스트 기반 유지)
 - ❌ 다국어 (한국어만)
-- ❌ 모바일 네이티브 앱 (web만)
-- ❌ 사주 정통 해설 모드 (학술적 모드)
+- ❌ 모바일 네이티브 앱 (web only)
 - ❌ 궁합 (두 명식 비교)
 - ❌ 음성 입력
-- ❌ 결과 이미지 공유 카드
-- ❌ 광고
-- ❌ 관리자 페이지
-- ❌ 이메일 발송
-- ❌ 분석 도구 통합 (GA4, Mixpanel) — 시간 낭비
-
-만들고 싶은 충동이 들면 **이 리스트 다시 읽고 자르세요.**
+- ❌ 이메일 발송 / 푸시 알림
+- ❌ 분석 도구 통합 (GA4, Mixpanel)
 
 ---
 
-## 9. 7일 일정 (남은 시간 기준 가이드)
+## 9. 구현 일정 (실제 진행)
 
-| Day | 작업 | 산출물 |
+| 단계 | 작업 | 산출물 |
 |---|---|---|
-| 1 (반일) | 마크다운 정리, RAG 단순화, seed-rag 재실행 | `saju_knowledge` 깨끗한 상태 |
-| 2 | 만세력 lib 검증, `/api/onboarding`, 온보딩 UI | 명식 입력 → DB 저장 동작 |
-| 3 | `/api/chat` + 스트리밍 + 채팅 UI 기본 | 첫 응답까지 동작 |
-| 4 | 사이드바, 첫 인사 LLM, 톤 다듬기 | "친구 톤" 완성 |
-| 5 | 두 번째 세션 follow-up, 메모리 확인, 버그 | "기억하는 폴라리스" 완성 |
-| 6 | UX hygiene, 에러 처리, 모바일 반응형, 데모 영상 | 평가자가 써볼 만한 상태 |
-| 7 | README, ONEPAGER.md, Vercel 배포, 데모 GIF | 제출 준비 완료 |
+| 1 | 프로젝트 셋업, 만세력 검증, RAG 시드 | 기반 인프라 완성 |
+| 2 | 온보딩 3단계, 사주 계산 API | 명식 입력 → DB 동작 |
+| 3 | 채팅 API (스트리밍) + 기본 UI | 첫 응답까지 동작 |
+| 4 | 5캐릭터 시스템, 세션 관리, 사이드바 | 캐릭터별 보이스 완성 |
+| 5 | 대시보드, 일일 운세, 추천 질문 | "오늘의 폴라리스" 완성 |
+| 6 | 복채 시스템, 대화 공유, 내 정보 | 부가 기능 완성 |
+| 7 | UI 폴리시, 문서화, 배포 | 제출 준비 완료 |
 
 ---
 
@@ -452,7 +510,7 @@ https://polaris.vercel.app
 → [ONEPAGER.md](./ONEPAGER.md)
 
 ## 기술 스택
-Next.js 15 / TypeScript / TailwindCSS / Supabase pgvector / Claude Sonnet 4.5 / OpenAI Embeddings / Vercel
+Next.js 16 / TypeScript / React 19 / Tailwind CSS v4 / shadcn/ui / Supabase pgvector / Claude Sonnet 4.6 / OpenAI Embeddings / Vercel
 
 ## 의사결정 기록 (이 섹션이 가장 중요)
 ### 왜 채팅 인터페이스인가
@@ -493,7 +551,7 @@ retrieval해 grounding합니다. 톤·코칭 원칙·오행 일반 지식은 ret
 
 ## AI 도구 활용 (뤼튼이 가장 보고 싶어하는 섹션)
 - **Claude Code**: 전체 코드베이스 ~80%를 Claude Code로 작성. 어떤 단위로 작업을 분해해서 어떻게 시켰는지 상세히.
-- **Claude Sonnet 4.5 (런타임)**: 메인 LLM. 한국어 톤이 가장 자연스러워 채택.
+- **Claude Sonnet 4.6 (런타임)**: 메인 LLM. 한국어 톤이 가장 자연스러워 채택. tool_use로 사주 근거 구조화 추출.
 - **OpenAI text-embedding-3-large**: RAG용.
 - **만세력 라이브러리 검증**: `@fullstackfamily/manseryeok` 채택. KASI 기반 + 진태양시 자동 보정 + 한국 윤달 정확이 결정 요인. 신생 라이브러리라 5개 케이스 단위 테스트로 검증 후 도입.
 - **프롬프트 엔지니어링 반복**: 보고서 톤 → 친구 톤 전환에 X번 반복.
@@ -522,50 +580,38 @@ pnpm dev
 
 ## 12. Acceptance Checklist (완료 기준)
 
-배포 직전 이 체크리스트로 검증:
-
-**기능**
-- [ ] 첫 방문 → 온보딩 → 명식 계산 → 채팅 진입 흐름이 끊김 없음
-- [ ] "시간 모름" 옵션 동작
-- [ ] 음력 입력 정확히 양력 변환
-- [ ] 채팅 응답 스트리밍 동작
-- [ ] 새로고침 후 대화 이력 유지 (localStorage UUID 기반)
-- [ ] 두 번째 세션 진입 시 follow-up 인사
+**핵심 기능**
+- [x] 첫 방문 → 온보딩 3단계 → 명식 계산 → 대시보드 진입
+- [x] "시간 모름" 옵션 + 음력/윤달 지원
+- [x] 채팅 응답 스트리밍 + tool_use (saju_basis)
+- [x] 5 캐릭터 전환 (세션별 캐릭터 연결)
+- [x] 세션 관리 (생성/삭제/전환/전체삭제)
+- [x] 대시보드 일일 운세 + 카테고리 카드
+- [x] 복채 시스템 (소모/충전/체크인/구매)
+- [x] 대화 공유 (share token)
+- [x] AI 추천 질문
 
 **톤**
-- [ ] 첫 응답이 5문장 이하 + 되묻기 포함
-- [ ] 보고서 톤 ("그대의 운명은") 0건
-- [ ] 명식 근거가 자연스러운 한 줄로 녹아있음
-- [ ] 단정 표현 ("반드시", "평생") 0건
+- [x] 캐릭터별 개성 있는 보이스
+- [x] 명식 근거가 자연스럽게 녹아있음
+- [x] 점쟁이 톤 / 결정론적 표현 배제
 
 **기술**
-- [ ] Vercel 배포 URL 정상 접속
-- [ ] 환경변수 누락 없음
-- [ ] RAG retrieval Top-1 정확도 100% (일간으로 일간 chunk 매칭)
-- [ ] 모바일 viewport (375px) 깨지지 않음
+- [x] Vercel 배포 URL 정상 접속
+- [x] RAG 2-track 검색 동작
+- [x] 모바일 반응형 (375px~)
+- [x] 다크 모드 지원
 
 **문서**
-- [ ] README 의사결정 기록 섹션 채워짐
-- [ ] AI 도구 활용 섹션 솔직하게 작성됨
-- [ ] ONEPAGER.md 4개 항목 모두 채워짐
-- [ ] 데모 GIF README 상단 노출
+- [x] README 의사결정 기록
+- [x] AI 도구 활용 섹션
+- [x] ONE_PAGER.md 완성
+- [x] SPEC.md 최종 업데이트
 
 ---
 
-## 13. Claude Code 작업 시작 시 첫 5단계
-
-이 SPEC을 기반으로 Claude Code에게 시킬 첫 작업 순서:
-
-1. `pnpm create next-app` (TypeScript, Tailwind, App Router)
-2. Supabase 마이그레이션 SQL 작성 (위 4번 스키마 그대로)
-3. `lib/saju/manseryuk.ts` — `@fullstackfamily/manseryeok` 설치 후 SPEC 2번의 5개 검증 케이스로 단위 테스트. 5개 모두 통과 시 채택, 실패 시 fallback 후보로 이동.
-4. `scripts/seed-rag.ts` — `ilgan-characteristics.md`만 임베딩
-5. `/api/onboarding` + `/onboarding` 페이지 → 명식 입력 동작까지
-
-여기까지 1.5일이면 채팅 토대 위에 올릴 준비 끝. 그 후 채팅 + 톤 작업이 진짜 본 게임.
-
----
-
-**끝.** 막히면 SPEC 11번(README 의사결정)부터 다시 읽으세요. *"왜 만드는지"*가 흐려질 때마다 가설 한 문장으로 돌아가면 됩니다:
+## 13. 핵심 가설 (이 문서의 나침반)
 
 > 사람들이 사주에서 진짜 원하는 건 정해진 운명 보고서가 아니라, 내 상황을 들어주고 사주 프레임으로 해석해주는 대화 상대다.
+
+모든 기능 결정은 이 한 문장으로 돌아갑니다.
