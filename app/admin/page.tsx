@@ -10,7 +10,7 @@ import {
   RETENTION_COHORT, KEY_EVENT_RATES, BOKCHAE_CONVERSION,
   WEEKLY_SHARE, CHARACTER_DISTRIBUTION, HOURLY_ACTIVE,
 } from "@/lib/admin-mock-data"
-import { TrendingUp, TrendingDown, Users, MessageCircle, Calendar, Zap, BarChart3, Repeat, Target, Construction } from "lucide-react"
+import { TrendingUp, TrendingDown, Users, MessageCircle, Calendar, Zap, BarChart3, Repeat, Target } from "lucide-react"
 import { useTheme } from "next-themes"
 
 const SUMMARY_ICONS = [Users, Zap, MessageCircle, Calendar]
@@ -75,18 +75,12 @@ export default function AdminPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 space-y-8">
-      {/* 배지 + 헤더 */}
-      <div className="space-y-3">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1">
-          <Construction className="h-3.5 w-3.5 text-amber-800 dark:text-amber-200" />
-          <span className="text-xs font-medium text-amber-800 dark:text-amber-200">향후 구현 내용</span>
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">어드민 대시보드</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            성공 지표 기반 · 가상 데이터로 시각화
-          </p>
-        </div>
+      {/* 헤더 */}
+      <div>
+        <h1 className="text-2xl font-bold">어드민 대시보드</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          성공 지표 기반 · 가상 데이터로 시각화
+        </p>
       </div>
 
       {/* ═══ 요약 카드 ═══ */}
