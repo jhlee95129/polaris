@@ -3,13 +3,14 @@
 import MessageBubble from "@/components/chat/MessageBubble"
 import type { SessionRow, MessageRow } from "@/lib/db/queries"
 import type { BasisData } from "@/components/chat/MessageList"
+import type { CharacterId } from "@/lib/characters"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 interface SharedChatViewProps {
   session: SessionRow
   messages: MessageRow[]
-  user: { display_name: string | null; ilgan: string }
+  user: { display_name: string | null; ilgan: string; character_id: string }
 }
 
 export default function SharedChatView({ session, messages, user }: SharedChatViewProps) {
@@ -43,6 +44,7 @@ export default function SharedChatView({ session, messages, user }: SharedChatVi
               basis={(msg.metadata as { basis?: BasisData } | null)?.basis}
               ilgan={user.ilgan}
               displayName={user.display_name || undefined}
+              characterId={(user.character_id || "seonbi") as CharacterId}
             />
           ))}
         </div>

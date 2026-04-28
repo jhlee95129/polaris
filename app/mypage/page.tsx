@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { pillarToHanja, getSiLabel, STEM_MAP, BRANCH_MAP, ELEMENTS, ELEMENT_COLORS, ELEMENT_BG, ELEMENT_EMOJI, getIlganElement, type Element, type TenGodKey } from "@/lib/saju-data"
 import { cn } from "@/lib/utils"
+import { CHARACTER_LIST } from "@/lib/characters"
 
 const HOURS = [
   { value: "-1", label: "모르겠어요" },
@@ -49,6 +50,7 @@ interface FullUserData {
   daeun_current: string | null
   created_at: string
   bokchae_count: number
+  character_id: string
 }
 
 interface DaeunItem {
@@ -572,6 +574,31 @@ export default function MyPage() {
           </div>
         </section>
       )}
+
+      {/* ═══ 설정 ═══ */}
+      <section className="space-y-3">
+        <h2 className="font-semibold text-lg">⚙️ 설정</h2>
+        <button
+          onClick={() => router.push("/settings")}
+          className="w-full flex items-center gap-3 rounded-2xl border border-border hover:border-primary/30 hover:bg-muted/50 p-4 transition-all text-left"
+        >
+          {(() => {
+            const char = CHARACTER_LIST.find(c => c.id === (user.character_id || "seonbi")) || CHARACTER_LIST[0]
+            return (
+              <>
+                <div className={`flex items-center justify-center h-10 w-10 rounded-full ${char.colorClass.avatarBg} shrink-0`}>
+                  <span className="text-lg leading-none">{char.emoji}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">코칭 캐릭터</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{char.name} · {char.identity}</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+              </>
+            )
+          })()}
+        </button>
+      </section>
 
       {/* ═══ 계정 삭제 ═══ */}
       <div className="pt-2 pb-8">

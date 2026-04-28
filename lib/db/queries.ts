@@ -26,6 +26,7 @@ export interface UserRow {
   saju_summary: string | null
   bokchae_count: number
   last_checkin_date: string | null
+  character_id: string
 }
 
 export interface MessageRow {
@@ -42,6 +43,7 @@ export interface SessionRow {
   id: string
   user_id: string
   title: string
+  character_id: string
   share_token: string | null
   created_at: string
   updated_at: string
@@ -177,16 +179,29 @@ export async function addBokchae(userId: string, amount: number): Promise<number
 
 export async function createSession(
   userId: string,
-  title: string = "새 대화"
+  title: string = "새 대화",
+  characterId: string = "seonbi"
 ): Promise<SessionRow> {
   const supabase = getServerSupabase()
   const { data, error } = await supabase
     .from("sessions")
-    .insert({ user_id: userId, title })
+    .insert({ user_id: userId, title, character_id: characterId })
     .select()
     .single()
 
   if (error) throw new Error(`세션 생성 실패: ${error.message}`)
+  return data as SessionRow
+}
+
+export async function getSession(sessionId: string): Promise<SessionRow | null> {
+  const supabase = getServerSupabase()
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .single()
+
+  if (error) return null
   return data as SessionRow
 }
 
@@ -334,7 +349,7 @@ export async function createShareToken(sessionId: string): Promise<string> {
 export async function getSharedSession(shareToken: string): Promise<{
   session: SessionRow
   messages: MessageRow[]
-  user: Pick<UserRow, "display_name" | "ilgan">
+  user: Pick<UserRow, "display_name" | "ilgan"> & { character_id: string }
 } | null> {
   const supabase = getServerSupabase()
 
@@ -362,6 +377,9 @@ export async function getSharedSession(shareToken: string): Promise<{
   return {
     session: session as SessionRow,
     messages: (messages as MessageRow[]) ?? [],
-    user: user as Pick<UserRow, "display_name" | "ilgan">,
+    user: {
+      ...(user as Pick<UserRow, "display_name" | "ilgan">),
+      character_id: (session as SessionRow).character_id,
+    },
   }
 }

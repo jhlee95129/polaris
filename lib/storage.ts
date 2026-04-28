@@ -1,5 +1,8 @@
 /**
- * localStorage 래퍼 — 폴라리스 사용자 UUID 관리
+ * 클라이언트 스토리지 래퍼
+ *
+ * localStorage  — 영속 (user_id)
+ * sessionStorage — 1회성 페이지 간 전달 (pending topic, pending session)
  */
 
 const POLARIS_USER_KEY = "polaris_user_id"
@@ -17,40 +20,37 @@ export function setUserId(id: string): void {
 export function clearUser(): void {
   if (typeof window === "undefined") return
   localStorage.removeItem(POLARIS_USER_KEY)
-  localStorage.removeItem(CURRENT_SESSION_KEY)
 }
 
-// ─── 세션 관리 ───
-
-const CURRENT_SESSION_KEY = "polaris_current_session_id"
-
-export function getCurrentSessionId(): string | null {
-  if (typeof window === "undefined") return null
-  return localStorage.getItem(CURRENT_SESSION_KEY)
-}
-
-export function setCurrentSessionId(id: string): void {
-  if (typeof window === "undefined") return
-  localStorage.setItem(CURRENT_SESSION_KEY, id)
-}
-
-export function clearCurrentSession(): void {
-  if (typeof window === "undefined") return
-  localStorage.removeItem(CURRENT_SESSION_KEY)
-}
-
-// ─── 주제 카드 → 채팅 연결 ───
+// ─── 페이지 간 1회성 전달 (sessionStorage) ───
 
 const PENDING_TOPIC_KEY = "polaris_pending_topic"
+const PENDING_SESSION_KEY = "polaris_pending_session"
 
+/** 대시보드 카드 → 채팅: 주제 전달 */
 export function setPendingTopic(message: string): void {
   if (typeof window === "undefined") return
   sessionStorage.setItem(PENDING_TOPIC_KEY, message)
 }
 
+/** 1회 소비 — 읽으면 삭제 */
 export function getPendingTopic(): string | null {
   if (typeof window === "undefined") return null
   const topic = sessionStorage.getItem(PENDING_TOPIC_KEY)
   if (topic) sessionStorage.removeItem(PENDING_TOPIC_KEY)
   return topic
+}
+
+/** 대시보드 최근 대화 → 채팅: 세션 ID 전달 */
+export function setPendingSession(sessionId: string): void {
+  if (typeof window === "undefined") return
+  sessionStorage.setItem(PENDING_SESSION_KEY, sessionId)
+}
+
+/** 1회 소비 — 읽으면 삭제 */
+export function getPendingSession(): string | null {
+  if (typeof window === "undefined") return null
+  const id = sessionStorage.getItem(PENDING_SESSION_KEY)
+  if (id) sessionStorage.removeItem(PENDING_SESSION_KEY)
+  return id
 }

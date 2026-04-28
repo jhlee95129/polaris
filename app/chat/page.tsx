@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { getUserId, getPendingTopic, getCurrentSessionId, setCurrentSessionId } from "@/lib/storage"
+import { getUserId, getPendingTopic, getPendingSession } from "@/lib/storage"
 import MessageList, { type ChatMessage } from "@/components/chat/MessageList"
 import MessageInput from "@/components/chat/MessageInput"
 import SajuSidebar, { type DailyFortune } from "@/components/chat/SajuSidebar"
@@ -26,8 +26,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ChevronDown, ChevronLeft, Share2, Check, User } from "lucide-react"
+import { ChevronDown, ChevronLeft, Share2, Check, User, Sparkles } from "lucide-react"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog"
 import { getIlganElement, ELEMENT_EMOJI } from "@/lib/saju-data"
+import { CHARACTERS, CHARACTER_LIST, type CharacterId } from "@/lib/characters"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -50,6 +54,7 @@ interface UserData {
   daeun_current: string | null
   bokchae_count: number
   last_checkin_date: string | null
+  character_id: string
 }
 
 const PACKAGES = [
@@ -61,6 +66,7 @@ const PACKAGES = [
 interface SessionItem {
   id: string
   title: string
+  character_id: string
   created_at: string
   updated_at: string
 }
@@ -125,6 +131,43 @@ export default function ChatPage() {
   const [checkinDone, setCheckinDone] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  const [characterDialogOpen, setCharacterDialogOpen] = useState(false)
+  const [changingCharId, setChangingCharId] = useState<string | null>(null)
+
+  // 캐릭터 변경 → 유저 설정 업데이트 + 새 세션 생성
+  async function handleCharacterChange(charId: string) {
+    if (!userId || !user || changingCharId || user.character_id === charId) return
+    setChangingCharId(charId)
+    try {
+      const res = await fetch("/api/user", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: userId, character_id: charId }),
+      })
+      if (!res.ok) throw new Error()
+      setUser(prev => prev ? { ...prev, character_id: charId } : prev)
+      setCharacterDialogOpen(false)
+
+      // 새 세션 생성 (변경된 캐릭터로)
+      const sessionRes = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, character_id: charId }),
+      })
+      const { session } = await sessionRes.json()
+      setSessions(prev => [session, ...prev])
+      setCurrentSessionIdState(session.id)
+      setMessages([])
+      requestGreeting(userId, session.id, [])
+
+      const char = CHARACTERS[charId as keyof typeof CHARACTERS]
+      toast.success(`${char.emoji} ${char.name}(으)로 변경했어요`)
+    } catch {
+      toast.error("캐릭터 변경에 실패했어요")
+    } finally {
+      setChangingCharId(null)
+    }
+  }
 
   // 일일 운세 로드 (localStorage 캐시)
   async function fetchDailyFortune(userData: UserData) {
@@ -185,8 +228,14 @@ export default function ChatPage() {
     }
   }
 
+  // 초기화 중복 방지 (React Strict Mode 대응)
+  const initRef = useRef(false)
+
   // 초기 로드
   useEffect(() => {
+    if (initRef.current) return
+    initRef.current = true
+
     const id = getUserId()
     if (!id) {
       router.replace("/")
@@ -216,27 +265,35 @@ export default function ChatPage() {
 
       // 현재 세션 결정
       const pendingTopic = getPendingTopic()
-      const savedSessionId = getCurrentSessionId()
+      const pendingSessionId = getPendingSession()
+      const userChar = u.character_id || "seonbi"
 
       if (pendingTopic) {
         // 랜딩 카드 → 새 세션 생성 후 자동 전송
         const topicTitle = pendingTopic.length > 30 ? pendingTopic.slice(0, 30) + "..." : pendingTopic
-        const session = await createNewSession(id, topicTitle)
+        const session = await createNewSession(id, topicTitle, userChar)
         setIsInitializing(false)
         await autoSendTopic(id, session.id, pendingTopic, [])
-      } else if (savedSessionId && loadedSessions.some(s => s.id === savedSessionId)) {
-        // 저장된 세션 복원
-        await loadSessionMessages(savedSessionId)
-        setIsInitializing(false)
-      } else if (loadedSessions.length > 0) {
-        // 가장 최근 세션 로드
-        await loadSessionMessages(loadedSessions[0].id)
-        setIsInitializing(false)
       } else {
-        // 세션 없음 → 새 세션 생성 + greeting
-        const session = await createNewSession(id)
-        setIsInitializing(false)
-        requestGreeting(id, session.id, [])
+        // 복원 대상 세션 결정
+        const pendingSession = pendingSessionId ? loadedSessions.find(s => s.id === pendingSessionId) : null
+
+        if (pendingSession) {
+          // 대시보드에서 명시적으로 선택한 세션 → 캐릭터 무관하게 로드
+          await loadSessionMessages(pendingSession.id)
+          setIsInitializing(false)
+        } else {
+          // 자동 선택: 최근 세션이 현재 캐릭터와 같으면 로드, 아니면 새 세션
+          const latestSession = loadedSessions[0] || null
+          if (latestSession && latestSession.character_id === userChar) {
+            await loadSessionMessages(latestSession.id)
+            setIsInitializing(false)
+          } else {
+            const session = await createNewSession(id, undefined, userChar)
+            setIsInitializing(false)
+            requestGreeting(id, session.id, [])
+          }
+        }
       }
     } catch {
       router.replace("/onboarding")
@@ -244,16 +301,16 @@ export default function ChatPage() {
   }
 
   // 새 세션 생성
-  async function createNewSession(userId: string, title?: string): Promise<SessionItem> {
+  async function createNewSession(userId: string, title?: string, characterId?: string): Promise<SessionItem> {
+    const charId = characterId || user?.character_id || "seonbi"
     const res = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, ...(title && { title }) }),
+      body: JSON.stringify({ user_id: userId, character_id: charId, ...(title && { title }) }),
     })
     const { session } = await res.json()
     setSessions(prev => [session, ...prev])
     setCurrentSessionIdState(session.id)
-    setCurrentSessionId(session.id)
     setMessages([])
     return session
   }
@@ -261,7 +318,6 @@ export default function ChatPage() {
   // 세션 메시지 로드
   async function loadSessionMessages(sessionId: string) {
     setCurrentSessionIdState(sessionId)
-    setCurrentSessionId(sessionId)
 
     const res = await fetch(`/api/sessions/${sessionId}/messages`)
     const { messages: msgData } = await res.json()
@@ -507,11 +563,11 @@ export default function ChatPage() {
     let basis: ChatMessage["basis"] = undefined
     const assistantId = `assistant-${Date.now()}`
 
-    // 통일된 메시지 업데이트: 이미 존재하면 교체, 없으면 추가
+    // 통일된 메시지 업데이트: id로 찾아서 교체, 없으면 추가
     const upsertMsg = (msg: ChatMessage) => {
       setMessages(prev => {
-        const last = prev[prev.length - 1]
-        if (last?.id === assistantId) return [...prev.slice(0, -1), msg]
+        const idx = prev.findIndex(m => m.id === assistantId)
+        if (idx !== -1) return [...prev.slice(0, idx), msg, ...prev.slice(idx + 1)]
         return [...prev, msg]
       })
     }
@@ -693,7 +749,9 @@ export default function ChatPage() {
     dailyFortune,
   }
 
-  const currentSessionTitle = sessions.find(s => s.id === currentSessionId)?.title || "새 대화"
+  const currentSession = sessions.find(s => s.id === currentSessionId)
+  const currentSessionTitle = currentSession?.title || "새 대화"
+  const sessionCharacterId = (currentSession?.character_id || user.character_id || "seonbi") as CharacterId
 
   // 추천 질문 표시 조건: AI 응답 후 (로딩 중이거나 추천 질문이 있을 ��)
   const showSuggestions = (suggestions.length > 0 || suggestionsLoading) &&
@@ -723,6 +781,22 @@ export default function ChatPage() {
                   <span className="text-sm font-semibold text-foreground/80">사주 상담방</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* 캐릭터 변경 */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setCharacterDialogOpen(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                      >
+                        <span className="text-sm">{CHARACTERS[sessionCharacterId]?.emoji || "📜"}</span>
+                        <span className="text-xs font-medium">{CHARACTERS[sessionCharacterId]?.name || "선비"}</span>
+                        <Sparkles className="h-3 w-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>코칭 캐릭터 변경</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -744,7 +818,7 @@ export default function ChatPage() {
                   <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} />
                 </div>
               </div>
-              <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} />
+              <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} characterId={sessionCharacterId} />
               <MessageInput onSend={handleSend} onTopicSelect={handleTopicFromMenu} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
             </div>
           </ResizablePanel>
@@ -774,6 +848,20 @@ export default function ChatPage() {
             <span className="ml-2 shrink-0">
               <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} />
             </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setCharacterDialogOpen(true)}
+                  className="ml-1 p-1.5 rounded-lg hover:bg-muted transition-colors"
+                  aria-label="캐릭터 변경"
+                >
+                  <span className="text-sm">{CHARACTERS[sessionCharacterId]?.emoji || "📜"}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>코칭 캐릭터 변경</p>
+              </TooltipContent>
+            </Tooltip>
             <button
               onClick={handleShare}
               disabled={shareLoading || !currentSessionId}
@@ -836,7 +924,8 @@ export default function ChatPage() {
                         : "text-muted-foreground hover:bg-muted"
                     )}
                   >
-                    <p className={cn("text-sm truncate", session.id === currentSessionId && "font-medium")}>
+                    <p className={cn("text-sm truncate flex items-center gap-1.5", session.id === currentSessionId && "font-medium")}>
+                      <span className="text-xs shrink-0">{CHARACTERS[session.character_id as CharacterId]?.emoji || "📜"}</span>
                       {session.title}
                     </p>
                     <p className="text-[10px] text-muted-foreground/60 mt-0.5">
@@ -894,7 +983,7 @@ export default function ChatPage() {
           </SheetContent>
         </Sheet>
 
-        <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} />
+        <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} characterId={sessionCharacterId} />
         <MessageInput onSend={handleSend} onTopicSelect={handleTopicFromMenu} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
       </div>
 
@@ -1004,6 +1093,52 @@ export default function ChatPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 캐릭터 변경 다이얼로그 */}
+      <Dialog open={characterDialogOpen} onOpenChange={setCharacterDialogOpen}>
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>🎭 코칭 캐릭터 변경</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2">변경 시 새 대화가 시작돼요. 분석 내용은 동일합니다.</p>
+          <div className="grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto">
+            {CHARACTER_LIST.map(char => {
+              const isSelected = user.character_id === char.id
+              const isChanging = changingCharId === char.id
+              return (
+                <button
+                  key={char.id}
+                  onClick={() => handleCharacterChange(char.id)}
+                  disabled={!!changingCharId || isSelected}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border p-4 transition-all text-left disabled:opacity-60",
+                    isSelected
+                      ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                      : "border-border hover:border-primary/30 hover:bg-muted/50"
+                  )}
+                >
+                  <div className={`flex items-center justify-center h-12 w-12 rounded-full ${char.colorClass.avatarBg} shrink-0`}>
+                    <span className="text-xl leading-none">{char.emoji}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isSelected ? char.colorClass.nameText : ""}`}>{char.name}</span>
+                      <span className="text-xs text-muted-foreground">{char.identity}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground/80 mt-0.5">{char.description}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1 italic truncate">&ldquo;{char.sampleLine}&rdquo;</p>
+                  </div>
+                  {isChanging ? (
+                    <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                  ) : isSelected ? (
+                    <span className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full shrink-0">사용 중</span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

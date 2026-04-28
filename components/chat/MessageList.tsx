@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import MessageBubble from "./MessageBubble"
+import { CHARACTERS, type CharacterId } from "@/lib/characters"
 
 export interface BasisData {
   ilgan: string
@@ -29,9 +30,10 @@ interface MessageListProps {
   ilgan?: string
   displayName?: string
   scrollTrigger?: number
+  characterId?: CharacterId
 }
 
-export default function MessageList({ messages, isStreaming, ilgan, displayName, scrollTrigger }: MessageListProps) {
+export default function MessageList({ messages, isStreaming, ilgan, displayName, scrollTrigger, characterId = "seonbi" }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export default function MessageList({ messages, isStreaming, ilgan, displayName,
             ilgan={ilgan}
             displayName={displayName}
             isStreaming={isStreaming && idx === messages.length - 1 && msg.role === "assistant"}
+            characterId={characterId}
           />
         ))}
 
@@ -57,12 +60,17 @@ export default function MessageList({ messages, isStreaming, ilgan, displayName,
         {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex justify-start" style={{ animation: "bubbleIn 0.35s ease-out both" }}>
             <div className="flex items-start gap-2.5">
-              <div className="shrink-0 flex flex-col items-center gap-0.5">
-                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/30 shadow-sm">
-                  <span className="text-base leading-none">⭐</span>
-                </div>
-                <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">폴라리스</span>
-              </div>
+              {(() => {
+                const char = CHARACTERS[characterId] || CHARACTERS.seonbi
+                return (
+                  <div className="shrink-0 flex flex-col items-center gap-0.5">
+                    <div className={`flex items-center justify-center h-9 w-9 rounded-full ${char.colorClass.avatarBg} shadow-sm`}>
+                      <span className="text-base leading-none">{char.emoji}</span>
+                    </div>
+                    <span className={`text-[10px] ${char.colorClass.nameText} font-medium`}>{char.name}</span>
+                  </div>
+                )
+              })()}
               <div className="flex flex-col items-start gap-1.5">
                 <div className="rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-1.5">

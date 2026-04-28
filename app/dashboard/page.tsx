@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getUserId, setPendingTopic, clearCurrentSession } from "@/lib/storage"
+import { getUserId, setPendingTopic, setPendingSession } from "@/lib/storage"
 import { Button } from "@/components/ui/button"
 import {
   ELEMENT_EMOJI,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/saju-data"
 import { cn } from "@/lib/utils"
 import { TOPIC_CATEGORIES } from "@/lib/topic-data"
+import { CHARACTERS, type CharacterId } from "@/lib/characters"
 import { toast } from "sonner"
 
 /* ── 타입 ── */
@@ -26,6 +27,7 @@ interface UserData {
 interface SessionItem {
   id: string
   title: string
+  character_id: string
   updated_at: string
 }
 
@@ -153,9 +155,6 @@ export default function DashboardPage() {
       setShowEmptyModal(true)
       return
     }
-    clearCurrentSession()
-    // 이전 pending topic 제거 후 새로 설정
-    sessionStorage.removeItem("polaris_pending_topic")
     if (message) setPendingTopic(message)
     router.push("/chat")
   }
@@ -267,12 +266,15 @@ export default function DashboardPage() {
               <button
                 key={session.id}
                 onClick={() => {
-                  localStorage.setItem("polaris_current_session_id", session.id)
+                  setPendingSession(session.id)
                   router.push("/chat")
                 }}
                 className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/5"
               >
-                <span className="truncate text-sm font-medium">{session.title}</span>
+                <span className="truncate text-sm font-medium flex items-center gap-1.5">
+                  <span className="text-xs shrink-0">{CHARACTERS[session.character_id as CharacterId]?.emoji || "📜"}</span>
+                  {session.title}
+                </span>
                 <span className="ml-3 shrink-0 text-xs text-muted-foreground">
                   {formatRelativeTime(session.updated_at)}
                 </span>

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { getUserId, setUserId } from "@/lib/storage"
 import { ChevronRight, ChevronLeft, Star, Check } from "lucide-react"
+import { CHARACTER_LIST, type CharacterId } from "@/lib/characters"
 
 // ─── 상수 ───
 
@@ -28,7 +29,7 @@ const HOURS = [
   { value: "21", label: "해시 (21:30~23:30)" },
 ]
 
-const STEP_LABELS = ["이름", "생일", "시작"]
+const STEP_LABELS = ["이름", "생일", "시간", "코치"]
 
 // ─── 엔트리 ───
 
@@ -170,6 +171,7 @@ function OnboardingContent() {
   const [calendarType, setCalendarType] = useState<"solar" | "lunar">("solar")
   const [isLeapMonth, setIsLeapMonth] = useState(false)
   const [gender, setGender] = useState<"male" | "female" | "">("")
+  const [characterId, setCharacterId] = useState<CharacterId>("seonbi")
   const [error, setError] = useState("")
 
   const [isChecking, setIsChecking] = useState(false)
@@ -238,11 +240,6 @@ function OnboardingContent() {
   }
 
   async function handleSubmit() {
-    if (!gender) {
-      setError("성별을 선택해주세요")
-      triggerShake("gender")
-      return
-    }
     setError("")
     setPhase("loading")
 
@@ -259,6 +256,7 @@ function OnboardingContent() {
           is_lunar: calendarType === "lunar",
           is_leap_month: calendarType === "lunar" && isLeapMonth,
           gender,
+          character_id: characterId,
         }),
       })
 
@@ -279,7 +277,8 @@ function OnboardingContent() {
   const bubbleMessages = [
     "안녕, 나는 폴라리스야. 뭐라고 부를까?",
     `${nickname || "친구"}의 생년월일을 알려줘.`,
-    "거의 다 왔어! 마지막으로 두 가지만.",
+    "거의 다 왔어! 두 가지만 더 알려줘.",
+    "마지막! 함께할 코치를 골라봐.",
   ]
 
   return (
@@ -571,13 +570,78 @@ function OnboardingContent() {
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <Button
-                          className="flex-1 h-14 rounded-2xl text-base shadow-lg shadow-primary/15 hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
-                          onClick={handleSubmit}
+                          className="flex-1 h-14 rounded-2xl text-base"
+                          onClick={() => {
+                            if (!gender) {
+                              setError("성별을 선택해주세요")
+                              triggerShake("gender")
+                              return
+                            }
+                            setError("")
+                            setStep(3)
+                          }}
                           disabled={!gender}
                           tabIndex={step === 2 ? 0 : -1}
                         >
+                          다음
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ━━━ Step 3: 코치 선택 ━━━ */}
+                  <div className="w-full flex-shrink-0 px-1 pt-1">
+                    <div className="space-y-5">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">코칭 캐릭터</Label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {CHARACTER_LIST.map(char => (
+                            <button
+                              key={char.id}
+                              type="button"
+                              onClick={() => setCharacterId(char.id)}
+                              tabIndex={step === 3 ? 0 : -1}
+                              className={`flex items-center gap-3 rounded-2xl border p-3.5 transition-all active:scale-[0.98] text-left ${
+                                characterId === char.id
+                                  ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                                  : "border-border hover:border-primary/30 hover:bg-muted/50"
+                              }`}
+                            >
+                              <div className={`flex items-center justify-center h-10 w-10 rounded-full ${char.colorClass.avatarBg} shrink-0`}>
+                                <span className="text-lg leading-none">{char.emoji}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-semibold ${characterId === char.id ? char.colorClass.nameText : ""}`}>{char.name}</span>
+                                  <span className="text-xs text-muted-foreground">{char.identity}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground/80 mt-0.5 truncate">&ldquo;{char.sampleLine}&rdquo;</p>
+                              </div>
+                              {characterId === char.id && (
+                                <Check className="h-4 w-4 text-primary shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          className="h-14 w-14 rounded-2xl"
+                          onClick={() => setStep(2)}
+                          tabIndex={step === 3 ? 0 : -1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          className="flex-1 h-14 rounded-2xl text-base shadow-lg shadow-primary/15 hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                          onClick={handleSubmit}
+                          tabIndex={step === 3 ? 0 : -1}
+                        >
                           <Star className="h-4 w-4 mr-1.5" />
-                          폴라리스 시작하기
+                          시작하기
                         </Button>
                       </div>
                     </div>

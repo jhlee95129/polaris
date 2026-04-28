@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       is_lunar,
       is_leap_month,
       gender,
+      character_id,
     } = body as {
       display_name?: string
       birth_year: number
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
       is_lunar?: boolean
       is_leap_month?: boolean
       gender: "male" | "female"
+      character_id?: string
     }
 
     // 닉네임 필수 + 중복 체크
@@ -133,6 +135,7 @@ export async function POST(request: NextRequest) {
       si_pillar: siPillar,
       daeun_current: daeunCurrent,
       saju_summary: sajuSummary,
+      character_id: character_id || "seonbi",
     })
 
     return NextResponse.json({

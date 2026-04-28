@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSupabase } from "@/lib/supabase/server"
 import { updateUser, getUserSessions, deleteUser } from "@/lib/db/queries"
+import { CHARACTER_LIST } from "@/lib/characters"
 import { calculateSajuProfile, generateSajuContext, lunarToSolarDate, type BirthInfo } from "@/lib/saju"
 import { STEM_MAP } from "@/lib/saju-data"
 import { generateText } from "@/lib/claude"
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   // 사용자 데이터
   const { data: userData, error: userError } = await supabase
     .from("users")
-    .select("id, display_name, saju_summary, yeon_pillar, wol_pillar, il_pillar, si_pillar, birth_year, birth_month, birth_day, birth_hour, is_lunar, gender, ilgan, daeun_current, created_at, bokchae_count, last_checkin_date")
+    .select("id, display_name, saju_summary, yeon_pillar, wol_pillar, il_pillar, si_pillar, birth_year, birth_month, birth_day, birth_hour, is_lunar, gender, ilgan, daeun_current, created_at, bokchae_count, last_checkin_date, character_id")
     .eq("id", userId)
     .single()
 
@@ -42,6 +43,29 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     console.error("계정 삭제 오류:", error)
     return NextResponse.json({ error: "삭제 실패" }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { id, character_id } = body as { id: string; character_id: string }
+
+    if (!id) {
+      return NextResponse.json({ error: "id 필요" }, { status: 400 })
+    }
+    if (!character_id || !CHARACTER_LIST.some(c => c.id === character_id)) {
+      return NextResponse.json({ error: "유효하지 않은 캐릭터입니다" }, { status: 400 })
+    }
+
+    const user = await updateUser(id, { character_id })
+    return NextResponse.json({ user })
+  } catch (error) {
+    console.error("캐릭터 변경 오류:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "캐릭터 변경 실패" },
+      { status: 500 }
+    )
   }
 }
 

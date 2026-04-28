@@ -22,11 +22,13 @@ import {
 } from "@/components/ui/alert-dialog"
 import { clearUser } from "@/lib/storage"
 import { cn } from "@/lib/utils"
+import { CHARACTERS, type CharacterId } from "@/lib/characters"
 import SajuInfoPanel from "./SajuInfoPanel"
 
 interface SessionItem {
   id: string
   title: string
+  character_id: string
   created_at: string
   updated_at: string
 }
@@ -164,7 +166,8 @@ export default function SajuSidebar({
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <p className={cn("text-sm truncate", session.id === currentSessionId && "font-medium")}>
+                <p className={cn("text-sm truncate flex items-center gap-1.5", session.id === currentSessionId && "font-medium")}>
+                  <span className="text-xs shrink-0">{CHARACTERS[session.character_id as CharacterId]?.emoji || "📜"}</span>
                   {session.title}
                 </p>
                 <p className="text-[10px] text-muted-foreground/60 mt-0.5">

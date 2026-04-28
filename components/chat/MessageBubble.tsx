@@ -15,6 +15,7 @@ import {
   getIlganElement,
   type Element,
 } from "@/lib/saju-data"
+import { CHARACTERS, type CharacterId } from "@/lib/characters"
 import {
   Sheet,
   SheetTrigger,
@@ -73,6 +74,7 @@ interface MessageBubbleProps {
   ilgan?: string
   isStreaming?: boolean
   displayName?: string
+  characterId?: CharacterId
 }
 
 function getReferencedPillarInfo(
@@ -118,19 +120,20 @@ function UserAvatar({ ilgan, displayName }: { ilgan?: string; displayName?: stri
   )
 }
 
-/* AI 아바타 — ⭐ + "폴라리스" 라벨 */
-function AiAvatar() {
+/* AI 아바타 — 캐릭터별 이모지 + 이름 */
+function AiAvatar({ characterId = "seonbi" }: { characterId?: CharacterId }) {
+  const char = CHARACTERS[characterId] || CHARACTERS.seonbi
   return (
     <div className="shrink-0 flex flex-col items-center gap-0.5">
-      <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/30 shadow-sm">
-        <span className="text-base leading-none">⭐</span>
+      <div className={`flex items-center justify-center h-9 w-9 rounded-full ${char.colorClass.avatarBg} shadow-sm`}>
+        <span className="text-base leading-none">{char.emoji}</span>
       </div>
-      <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">폴라리스</span>
+      <span className={`text-[10px] ${char.colorClass.nameText} font-medium`}>{char.name}</span>
     </div>
   )
 }
 
-export default memo(function MessageBubble({ role, content, basis, ilgan, isStreaming, displayName }: MessageBubbleProps) {
+export default memo(function MessageBubble({ role, content, basis, ilgan, isStreaming, displayName, characterId }: MessageBubbleProps) {
   const isUser = role === "user"
   const [open, setOpen] = useState(false)
 
@@ -157,8 +160,8 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
     <div className="flex justify-start" style={{ animation: "bubbleIn 0.35s ease-out both" }}>
       <div className="max-w-[80%]">
         <div className="flex items-start gap-2.5">
-          <AiAvatar />
-          <div className="rounded-2xl rounded-bl-sm border border-border border-l-2 border-l-amber-300/50 dark:border-l-amber-600/30 bg-card px-4 py-2.5 shadow-sm">
+          <AiAvatar characterId={characterId} />
+          <div className={`rounded-2xl rounded-bl-sm border border-border border-l-2 bg-card px-4 py-2.5 shadow-sm ${(CHARACTERS[characterId || "seonbi"] || CHARACTERS.seonbi).colorClass.borderLeft}`}>
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
           </div>
         </div>
@@ -201,7 +204,7 @@ export default memo(function MessageBubble({ role, content, basis, ilgan, isStre
                 <div className="p-4 space-y-3">
                   {/* ── 원본 응답 ── */}
                   <div className="rounded-2xl border border-border bg-muted/30 p-4">
-                    <p className="text-xs font-bold text-muted-foreground mb-1.5"><span className="text-lg align-middle mr-0.5">💬</span> 폴라리스 응답</p>
+                    <p className="text-xs font-bold text-muted-foreground mb-1.5"><span className="text-lg align-middle mr-0.5">💬</span> {(CHARACTERS[characterId || "seonbi"] || CHARACTERS.seonbi).name} 응답</p>
                     <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">{content}</p>
                   </div>
 

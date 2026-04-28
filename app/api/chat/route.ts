@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { streamChat, extractSajuBasis } from "@/lib/claude"
 import { buildSystemPrompt, buildUserContextBlock } from "@/lib/prompts"
-import { getUser, getSessionMessages, getRecentMessages, saveMessage, updateSessionTitle, consumeBokchae } from "@/lib/db/queries"
+import { getUser, getSession, getSessionMessages, getRecentMessages, saveMessage, updateSessionTitle, consumeBokchae } from "@/lib/db/queries"
 import { searchSajuKnowledge } from "@/lib/rag"
 
 export async function POST(request: NextRequest) {
@@ -42,12 +42,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 세션 조회 (캐릭터 결정)
+    const session = await getSession(session_id)
+    const characterId = (session?.character_id || user.character_id || "seonbi") as import("@/lib/characters").CharacterId
+
     // 세션 메시지 + RAG 검색
     const sessionMessages = await getSessionMessages(session_id, 20)
     const ilganChunk = await searchSajuKnowledge(user.ilgan, message)
 
     // 시스템 프롬프트 조립
-    const systemPrompt = buildSystemPrompt() + "\n" + buildUserContextBlock({
+    const systemPrompt = buildSystemPrompt(characterId) + "\n" + buildUserContextBlock({
       user,
       ilganChunk,
     })
@@ -168,14 +172,18 @@ export async function POST(request: NextRequest) {
             ...(sajuBasis || {}),
           }
 
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({
-              meta: { basis, cleanText: fullText }
-            })}\n\n`)
-          )
-          controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
+          try {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({
+                meta: { basis, cleanText: fullText }
+              })}\n\n`)
+            )
+            controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
+            controller.close()
+          } catch {
+            // 클라이언트 연결 끊김 — controller 이미 닫힘
+          }
           closed = true
-          controller.close()
         } catch (err) {
           console.error("스트리밍 오류:", err)
           if (!closed) {

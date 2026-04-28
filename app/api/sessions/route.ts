@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { user_id, title } = await req.json()
+  const { user_id, title, character_id } = await req.json()
   if (!user_id) {
     return NextResponse.json({ error: "user_id 필수" }, { status: 400 })
   }
-  const session = await createSession(user_id, title || undefined)
+  const session = await createSession(user_id, title || undefined, character_id || undefined)
   return NextResponse.json({ session })
 }
 

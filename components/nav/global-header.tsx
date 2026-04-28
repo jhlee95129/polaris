@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
   AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
-import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star, Sun, Moon } from "lucide-react"
+import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star, Sun, Moon, Settings } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
@@ -51,8 +51,8 @@ export default function GlobalHeader() {
     router.push("/")
   }
 
-  // 온보딩에서는 로고만
-  if (pathname === "/onboarding") {
+  // 온보딩·공유 뷰에서는 로고만
+  if (pathname === "/onboarding" || pathname.startsWith("/share/")) {
     return (
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="flex items-center px-6 py-3">
@@ -104,6 +104,23 @@ export default function GlobalHeader() {
               )
             })}
           </nav>
+
+          {/* 설정 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/settings")}
+            className={pathname === "/settings"
+              ? "text-primary bg-primary/10"
+              : "text-muted-foreground hover:text-foreground"
+            }
+          >
+            <Settings className="h-4 w-4 md:mr-1" />
+            <span className="hidden md:inline">설정</span>
+          </Button>
+
+          {/* 구분선 */}
+          <div className="mx-1 h-5 w-px bg-border" />
 
           {/* 테마 토글 */}
           <Button
