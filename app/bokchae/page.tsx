@@ -96,8 +96,22 @@ export default function BokchaeStorePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[calc(100svh-49px)] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-3xl px-4 py-8 space-y-8 animate-pulse">
+        <div className="space-y-2">
+          <div className="h-8 w-28 rounded-lg bg-muted" />
+          <div className="h-4 w-48 rounded bg-muted" />
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-6 flex flex-col items-center gap-2">
+          <div className="h-12 w-16 rounded-lg bg-muted" />
+          <div className="h-4 w-20 rounded bg-muted" />
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-5 h-16" />
+        <div className="space-y-3">
+          <div className="h-6 w-32 rounded bg-muted" />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-xl border border-border bg-card p-4 h-16" />
+          ))}
+        </div>
       </div>
     )
   }

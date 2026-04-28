@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
   AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
-import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star, Sun, Moon, Settings } from "lucide-react"
+import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star, Sun, Moon, Settings, HelpCircle } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
@@ -117,6 +117,20 @@ export default function GlobalHeader() {
           >
             <Settings className="h-4 w-4 md:mr-1" />
             <span className="hidden md:inline">설정</span>
+          </Button>
+
+          {/* 도움말 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/help")}
+            className={pathname === "/help"
+              ? "text-primary bg-primary/10"
+              : "text-muted-foreground hover:text-foreground"
+            }
+          >
+            <HelpCircle className="h-4 w-4 md:mr-1" />
+            <span className="hidden md:inline">도움말</span>
           </Button>
 
           {/* 구분선 */}
