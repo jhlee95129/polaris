@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
   AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
-import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star, Sun, Moon, Settings, HelpCircle } from "lucide-react"
+import { Home, LayoutDashboard, MessageCircle, Store, UserRound, LogOut, Star, Sun, Moon, Settings, HelpCircle, ShieldCheck } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
@@ -131,6 +131,22 @@ export default function GlobalHeader() {
           >
             <HelpCircle className="h-4 w-4 md:mr-1" />
             <span className="hidden md:inline">도움말</span>
+          </Button>
+
+          {/* 어드민 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/admin")}
+            className={cn(
+              "border-dashed text-xs h-7",
+              pathname === "/admin"
+                ? "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400"
+                : "border-muted-foreground/30 text-muted-foreground hover:border-amber-500/50 hover:text-amber-600 dark:hover:text-amber-400"
+            )}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 md:mr-1" />
+            <span className="hidden md:inline">어드민</span>
           </Button>
 
           {/* 구분선 */}

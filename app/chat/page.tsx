@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ChevronDown, ChevronLeft, Share2, Check, User, Sparkles } from "lucide-react"
+import { ChevronDown, ChevronLeft, Share2, Check, User } from "lucide-react"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog"
@@ -790,7 +790,7 @@ export default function ChatPage() {
                       >
                         <span className="text-sm">{CHARACTERS[sessionCharacterId]?.emoji || "📜"}</span>
                         <span className="text-xs font-medium">{CHARACTERS[sessionCharacterId]?.name || "선비"}</span>
-                        <Sparkles className="h-3 w-3" />
+                        <ChevronDown className="h-3 w-3" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>

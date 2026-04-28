@@ -245,7 +245,7 @@ export default function DashboardPage() {
             onClick={handleCheckin}
             disabled={checkinDone || checkinLoading}
           >
-            {checkinLoading ? "..." : checkinDone ? "완료" : "체크인"}
+            {checkinLoading ? <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> : checkinDone ? "완료" : "체크인"}
           </Button>
         </div>
       </div>

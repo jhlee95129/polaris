@@ -16,6 +16,7 @@ import {
   Check,
   BookOpen,
   Heart,
+  Loader2,
   type LucideIcon,
 } from "lucide-react"
 
@@ -326,8 +327,7 @@ export default function LandingPage() {
                 onClick={handleNicknameLogin}
                 disabled={lookupLoading || !nicknameInput.trim()}
               >
-                {lookupLoading ? "..." : "시작"}
-                {!lookupLoading && <ArrowRight className="ml-1 h-4 w-4" />}
+                {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>시작</span><ArrowRight className="ml-1 h-4 w-4" /></>}
               </Button>
             </div>
             {lookupError && (

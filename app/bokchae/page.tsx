@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getUserId } from "@/lib/storage"
 import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 /* ── 상점 패키지 데이터 ── */
@@ -129,7 +130,7 @@ export default function BokchaeStorePage() {
       {/* 현재 잔량 */}
       <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-2">
         <p className="text-5xl font-bold text-primary">{bokchaeCount ?? 0}</p>
-        <p className="text-sm text-muted-foreground">현재 복채</p>
+        <p className="text-sm text-muted-foreground">현재 복채 💰</p>
       </div>
 
       {/* 출석 체크인 */}
@@ -144,7 +145,7 @@ export default function BokchaeStorePage() {
             onClick={handleCheckin}
             disabled={checkinDone || checkinLoading}
           >
-            {checkinLoading ? "..." : checkinDone ? "완료" : "체크인"}
+            {checkinLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : checkinDone ? "완료" : "체크인"}
           </Button>
         </div>
       </div>
@@ -181,7 +182,7 @@ export default function BokchaeStorePage() {
                   onClick={() => handlePurchase(pkg.id)}
                   disabled={purchaseLoading === pkg.id}
                 >
-                  {purchaseLoading === pkg.id ? "..." : "구매하기"}
+                  {purchaseLoading === pkg.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "구매하기"}
                 </Button>
               </div>
             </div>
