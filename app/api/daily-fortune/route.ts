@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import Anthropic from "@anthropic-ai/sdk"
-
-let client: Anthropic | null = null
-function getClient(): Anthropic {
-  if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-  return client
-}
+import { getClient, MODEL_LIGHT } from "@/lib/claude"
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,7 +25,7 @@ export async function POST(req: NextRequest) {
     ].filter(Boolean).join("\n")
 
     const res = await getClient().messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: MODEL_LIGHT,
       max_tokens: 400,
       system: `당신은 사주 명리학 전문가입니다. 오늘 날짜(${todayStr})와 사용자의 사주 정보를 바탕으로 오늘의 운세 정보를 생성합니다.
 

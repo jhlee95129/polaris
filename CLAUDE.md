@@ -7,8 +7,8 @@
 - **Framework**: Next.js 16 (App Router) + TypeScript + React 19
 - **UI**: Tailwind CSS v4 + shadcn/ui (radix-nova style)
 - **사주 계산**: `@fullstackfamily/manseryeok` (KASI 기반 만세력)
-- **AI**: Claude Sonnet 4 (`@anthropic-ai/sdk`) — tool_use 구조화 출력
-- **RAG**: Supabase pgvector + OpenAI `text-embedding-3-small`
+- **AI**: Claude Sonnet 4.6 (`@anthropic-ai/sdk`, `claude-sonnet-4-6`) — 실시간 채팅 + 추천 질문 + 일일 운세 전부 Sonnet 통일, tool_use 구조화 출력
+- **RAG**: Supabase pgvector + OpenAI `text-embedding-3-large` (2000차원)
 - **DB/Auth**: Supabase (pgvector + anonymous auth + PostgreSQL)
 - **배포**: Vercel
 

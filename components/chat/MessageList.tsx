@@ -22,18 +22,21 @@ export interface ChatMessage {
   role: "user" | "assistant"
   content: string
   basis?: BasisData
+  isBokchaeMessage?: boolean
 }
 
 interface MessageListProps {
   messages: ChatMessage[]
   isStreaming?: boolean
+  isAnalyzing?: boolean
   ilgan?: string
   displayName?: string
   scrollTrigger?: number
   characterId?: CharacterId
+  onBokchaeOpen?: () => void
 }
 
-export default function MessageList({ messages, isStreaming, ilgan, displayName, scrollTrigger, characterId = "seonbi" }: MessageListProps) {
+export default function MessageList({ messages, isStreaming, isAnalyzing, ilgan, displayName, scrollTrigger, characterId = "seonbi", onBokchaeOpen }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -52,7 +55,10 @@ export default function MessageList({ messages, isStreaming, ilgan, displayName,
             ilgan={ilgan}
             displayName={displayName}
             isStreaming={isStreaming && idx === messages.length - 1 && msg.role === "assistant"}
+            isAnalyzing={isAnalyzing && idx === messages.length - 1 && msg.role === "assistant"}
             characterId={characterId}
+            isBokchaeMessage={msg.isBokchaeMessage}
+            onBokchaeOpen={onBokchaeOpen}
           />
         ))}
 

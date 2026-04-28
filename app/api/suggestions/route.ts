@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import Anthropic from "@anthropic-ai/sdk"
-
-let client: Anthropic | null = null
-function getClient(): Anthropic {
-  if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-  return client
-}
+import { getClient, MODEL_LIGHT } from "@/lib/claude"
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +16,7 @@ export async function POST(req: NextRequest) {
     const recent = messages.slice(-6)
 
     const res = await getClient().messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: MODEL_LIGHT,
       max_tokens: 400,
       system: `당신은 사주 상담 AI 앱의 추천 질문 생성기입니다.
 사용자와 AI 코치의 대화를 보고, 사용자가 다음에 물어볼 만한 자연스러운 후속 질문 7개를 생성하세요.

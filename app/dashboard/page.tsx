@@ -59,11 +59,7 @@ function getIlganEmoji(ilgan: string): string {
 
 /* ── 복채 패키지 ── */
 
-const PACKAGES = [
-  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "💰" },
-  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "💰💰" },
-  { id: "large", name: "대복채", count: 10, price: "₩3,000", emoji: "💰💰💰" },
-]
+
 
 /* ── 메인 컴포넌트 ── */
 
@@ -75,8 +71,6 @@ export default function DashboardPage() {
   const [checkinLoading, setCheckinLoading] = useState(false)
   const [checkinDone, setCheckinDone] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [showEmptyModal, setShowEmptyModal] = useState(false)
-  const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null)
 
   useEffect(() => {
     const userId = getUserId()
@@ -117,7 +111,7 @@ export default function DashboardPage() {
       if (data.added) {
         setUser(prev => prev ? { ...prev, bokchae_count: data.count } : prev)
         setCheckinDone(true)
-        setShowEmptyModal(false)
+
         toast.success("📅 출석 체크인 완료!", { description: `복채 +1 (총 ${data.count}개)`, duration: 2000 })
       } else {
         setCheckinDone(true)
@@ -128,33 +122,9 @@ export default function DashboardPage() {
     setCheckinLoading(false)
   }
 
-  async function handleInlinePurchase(pkgId: string) {
-    if (!user || purchaseLoading) return
-    setPurchaseLoading(pkgId)
-    try {
-      const res = await fetch("/api/bokchae/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id, package: pkgId }),
-      })
-      const data = await res.json()
-      if (data.count !== undefined) {
-        setUser(prev => prev ? { ...prev, bokchae_count: data.count } : prev)
-        toast.success(`💰 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
-        setShowEmptyModal(false)
-      }
-    } catch {
-      toast.error("충전에 실패했어요")
-    } finally {
-      setPurchaseLoading(null)
-    }
-  }
+
 
   function handleTopicClick(message: string) {
-    if (user && user.bokchae_count <= 0) {
-      setShowEmptyModal(true)
-      return
-    }
     if (message) setPendingTopic(message)
     router.push("/chat")
   }
@@ -430,80 +400,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ═══ 복채 인라인 충전 다이얼로그 ═══ */}
-      {showEmptyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowEmptyModal(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="text-center space-y-1">
-              <p className="text-4xl">💰</p>
-              <h3 className="text-lg font-bold">복채가 없어요</h3>
-              <p className="text-sm text-muted-foreground">질문 1개에 복채 1개가 필요해요</p>
-            </div>
-
-            {!checkinDone && (
-              <button
-                onClick={handleCheckin}
-                disabled={checkinLoading}
-                className="w-full flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 px-4 py-3 transition-colors disabled:opacity-50"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-lg">📅</span>
-                  <div className="text-left">
-                    <p className="text-sm font-medium">출석 체크인</p>
-                    <p className="text-xs text-muted-foreground">매일 무료 +1</p>
-                  </div>
-                </div>
-                {checkinLoading ? (
-                  <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">무료</span>
-                )}
-              </button>
-            )}
-
-            <div className="rounded-xl bg-gradient-to-r from-amber-50/80 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 px-3 py-2 text-center">
-              <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">오픈 기념 무료 충전 이벤트</p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {PACKAGES.map(pkg => (
-                <button
-                  key={pkg.id}
-                  onClick={() => handleInlinePurchase(pkg.id)}
-                  disabled={!!purchaseLoading}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 p-3 transition-all disabled:opacity-50"
-                >
-                  <span className="text-lg">{pkg.emoji}</span>
-                  <p className="text-xs font-semibold">{pkg.name}</p>
-                  <p className="text-lg font-bold text-primary">{pkg.count}개</p>
-                  <p className="text-[10px] text-muted-foreground line-through">{pkg.price}</p>
-                  {purchaseLoading === pkg.id ? (
-                    <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">무료 충전</span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                className="flex-1 text-sm text-muted-foreground"
-                onClick={() => setShowEmptyModal(false)}
-              >
-                닫기
-              </Button>
-              <Button
-                className="flex-1 text-sm"
-                onClick={() => router.push("/bokchae")}
-              >
-                상점 가기
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

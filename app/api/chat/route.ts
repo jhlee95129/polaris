@@ -123,6 +123,8 @@ export async function POST(request: NextRequest) {
     const readable = new ReadableStream({
       async start(controller) {
         try {
+          let textCompleteSent = false
+
           for await (const event of stream) {
             if (closed) break
             if (event.type === "content_block_delta") {
@@ -133,12 +135,30 @@ export async function POST(request: NextRequest) {
                   encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
                 )
               } else if (event.delta.type === "input_json_delta") {
+                // 도구 입력 시작 = 텍스트 완료 → 분석 단계 알림
+                if (!textCompleteSent) {
+                  textCompleteSent = true
+                  try {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ textComplete: true })}\n\n`)
+                    )
+                  } catch { /* 클라이언트 끊김 */ }
+                }
                 toolInput += event.delta.partial_json
               }
             }
           }
 
           if (closed) return
+
+          // 도구 미호출 시에도 textComplete 전송
+          if (!textCompleteSent) {
+            try {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ textComplete: true })}\n\n`)
+              )
+            } catch { /* 클라이언트 끊김 */ }
+          }
 
           // tool input 파싱
           if (toolInput) {

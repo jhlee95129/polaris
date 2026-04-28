@@ -8,7 +8,7 @@ import Anthropic from "@anthropic-ai/sdk"
 
 let client: Anthropic | null = null
 
-function getClient(): Anthropic {
+export function getClient(): Anthropic {
   if (!client) {
     client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -17,7 +17,9 @@ function getClient(): Anthropic {
   return client
 }
 
-const MODEL = "claude-opus-4-7"
+const MODEL = "claude-sonnet-4-6"
+/** 경량 작업용 (추천 질문, 일일 운세 등) */
+export const MODEL_LIGHT = "claude-sonnet-4-6"
 
 // ─── saju_basis tool 정의 (구조화 출력 추출용) ───
 

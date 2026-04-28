@@ -1,8 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +16,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { clearUser } from "@/lib/storage"
 import { cn } from "@/lib/utils"
 import { CHARACTERS, type CharacterId } from "@/lib/characters"
 import SajuInfoPanel from "./SajuInfoPanel"
@@ -66,7 +62,6 @@ interface SajuSidebarProps {
   onNewChat: () => void
   onSessionDelete: (sessionId: string) => void
   onDeleteAllSessions: () => void
-  onReset: () => void
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -102,17 +97,9 @@ export default function SajuSidebar({
   onNewChat,
   onSessionDelete,
   onDeleteAllSessions,
-  onReset,
 }: SajuSidebarProps) {
-  const router = useRouter()
   const [deleteTarget, setDeleteTarget] = useState<SessionItem | null>(null)
   const [deleteAllOpen, setDeleteAllOpen] = useState(false)
-  const [resetOpen, setResetOpen] = useState(false)
-
-  function handleReset() {
-    clearUser()
-    onReset()
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -134,50 +121,50 @@ export default function SajuSidebar({
       </div>
 
       {/* 대화 목록 */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-3 pb-1 flex items-center justify-between">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">대화 목록</p>
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="p-3 pb-1.5 flex items-center justify-between shrink-0">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">대화 목록</p>
           <div className="flex items-center gap-1">
             {sessions.length > 1 && (
               <button
                 onClick={() => setDeleteAllOpen(true)}
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded-lg hover:bg-destructive/5"
+                className="text-xs text-destructive/70 hover:text-destructive transition-colors px-2 py-1 rounded-lg hover:bg-destructive/5"
               >
                 전체 삭제
               </button>
             )}
             <button
               onClick={onNewChat}
-              className="text-sm text-primary hover:text-primary/80 transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-primary/5"
+              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-primary/5"
             >
               ➕ 새 대화
             </button>
           </div>
         </div>
-        <div className="px-2 pb-2 space-y-0.5">
+        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
           {sessions.map(session => (
             <div key={session.id} className="group relative flex items-center">
               <button
                 onClick={() => onSessionSwitch(session.id)}
                 className={cn(
-                  "w-full text-left px-2.5 py-1.5 rounded-lg transition-colors pr-7",
+                  "w-full text-left px-3 py-2 rounded-xl transition-colors pr-8",
                   session.id === currentSessionId
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <p className={cn("text-sm truncate flex items-center gap-1.5", session.id === currentSessionId && "font-medium")}>
-                  <span className="text-xs shrink-0">{CHARACTERS[session.character_id as CharacterId]?.emoji || "📜"}</span>
+                <p className={cn("text-sm truncate flex items-center gap-1.5", session.id === currentSessionId && "font-semibold")}>
+                  <span className="text-sm shrink-0">{CHARACTERS[session.character_id as CharacterId]?.emoji || "📜"}</span>
                   {session.title}
                 </p>
-                <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                <p className="text-xs text-muted-foreground/60 mt-0.5">
                   {formatRelativeTime(session.updated_at || session.created_at)}
                 </p>
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="absolute right-1 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground transition-all"
+                    className="absolute right-1.5 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground transition-all"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -196,44 +183,11 @@ export default function SajuSidebar({
             </div>
           ))}
           {sessions.length === 0 && (
-            <p className="text-[11px] text-muted-foreground/50 px-2.5 py-3 text-center">
+            <p className="text-sm text-muted-foreground/50 px-3 py-4 text-center">
               아직 대화가 없습니다
             </p>
           )}
         </div>
-      </div>
-
-      {/* 하단 액션 */}
-      <div className="p-3 border-t border-border space-y-1.5">
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-sm h-11 rounded-xl"
-          onClick={() => router.push("/bokchae")}
-        >
-          <span className="text-base mr-1">💰</span> 복채 충전
-        </Button>
-        <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sm h-11 rounded-xl text-muted-foreground hover:text-destructive"
-            >
-              <span className="text-base mr-1">🗑️</span> 초기화
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>초기화</AlertDialogTitle>
-              <AlertDialogDescription>
-                대화 기록을 모두 지우고 새로 시작할까요?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>취소</AlertDialogCancel>
-              <AlertDialogAction onClick={handleReset}>초기화</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
 
       {/* 전체 삭제 확인 다이얼로그 */}

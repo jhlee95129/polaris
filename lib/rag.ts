@@ -1,8 +1,8 @@
 /**
  * RAG 파이프라인
- * ilgan-characteristics.md 전용 — 일간 해석 grounding
+ * 사주 명리학 지식 검색 — 주제별 + 일간별 2-track 검색
  *
- * 흐름: 일간 키워드 → OpenAI 임베딩 → Supabase pgvector 검색 → Top-1 반환
+ * 흐름: (1) 메시지 기반 주제 검색 + (2) 일간 맥락 검색 → 병합·중복 제거 → 반환
  */
 
 import OpenAI from "openai"
@@ -32,13 +32,32 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   return response.data[0].embedding
 }
 
-// ─── 사주 지식 검색 (컨텍스트 기반) ───
+// ─── 사주 지식 검색 (2-track: 주제 + 일간) ───
+
+type MatchRow = { id: string; content: string; similarity: number }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function vectorSearch(
+  supabase: any,
+  query: string,
+  count: number,
+  threshold = 0.3,
+): Promise<MatchRow[]> {
+  const embedding = await generateEmbedding(query)
+  const { data, error } = await supabase.rpc("match_saju_knowledge", {
+    query_embedding: embedding,
+    match_threshold: threshold,
+    match_count: count,
+  })
+  if (error || !data) return []
+  return data as MatchRow[]
+}
 
 /**
- * 사용자 일간 + 대화 내용 기반으로 관련 사주 지식을 RAG에서 검색
- * @param ilgan 사용자 일간 (예: "병화")
- * @param userMessage 사용자의 현재 질문/메시지 (없으면 일간 특성만 검색)
- * @returns 관련 사주 지식 텍스트 배열 (최대 3개)
+ * 2-track 검색으로 주제 다양성 보장
+ * Track 1: 메시지 주제 중심 (일간 없이) → 대운/합충/격국 등 주제별 지식 매칭
+ * Track 2: 일간 + 메시지 → 일간 맞춤 해석
+ * 결과를 병합·중복 제거하여 반환 (최대 3개)
  */
 export async function searchSajuKnowledge(ilgan: string, userMessage?: string): Promise<string> {
   if (!process.env.OPENAI_API_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
@@ -46,27 +65,36 @@ export async function searchSajuKnowledge(ilgan: string, userMessage?: string): 
   }
 
   try {
-    // 쿼리: 사용자 메시지가 있으면 일간 + 메시지 결합, 없으면 일간 특성만
-    const query = userMessage
-      ? `${ilgan} 사주 ${userMessage}`
-      : `${ilgan} 일간 특성`
-
-    const embedding = await generateEmbedding(query)
-
     const { getServerSupabase } = await import("./supabase/server")
     const supabase = getServerSupabase()
 
-    const { data, error } = await supabase.rpc("match_saju_knowledge", {
-      query_embedding: embedding,
-      match_threshold: 0.25,
-      match_count: 3,
-    })
-
-    if (error || !data || data.length === 0) {
-      return ""
+    if (!userMessage) {
+      // 메시지 없으면 일간 특성만 검색
+      const results = await vectorSearch(supabase, `${ilgan} 일간 특성 성격`, 2)
+      return results.map(d => d.content).join("\n\n---\n\n")
     }
 
-    return (data as Array<{ content: string }>).map(d => d.content).join("\n\n---\n\n")
+    // Track 1: 주제 중심 (일간 바이어스 제거) — 대운, 합충, 격국, 코칭 등 주제별 지식
+    // Track 2: 일간 맞춤 — 사용자 일간에 특화된 해석
+    const [topicResults, ilganResults] = await Promise.all([
+      vectorSearch(supabase, `사주 명리 ${userMessage}`, 3, 0.3),
+      vectorSearch(supabase, `${ilgan} ${userMessage}`, 2, 0.3),
+    ])
+
+    // 병합 + 중복 제거 (content 기준)
+    const seen = new Set<string>()
+    const merged: MatchRow[] = []
+
+    // 주제 결과 우선, 그 다음 일간 결과
+    for (const row of [...topicResults, ...ilganResults]) {
+      if (!seen.has(row.content) && merged.length < 3) {
+        seen.add(row.content)
+        merged.push(row)
+      }
+    }
+
+    if (merged.length === 0) return ""
+    return merged.map(d => d.content).join("\n\n---\n\n")
   } catch (error) {
     console.error("RAG 검색 실패:", error)
     return ""

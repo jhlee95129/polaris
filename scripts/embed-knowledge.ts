@@ -38,8 +38,10 @@ async function main() {
   console.log("기존 데이터 삭제 중...")
   await supabase.from("saju_knowledge").delete().neq("id", "00000000-0000-0000-0000-000000000000")
 
-  // 모든 .md 파일 처리
-  const files = readdirSync(KNOWLEDGE_DIR).filter(f => f.endsWith(".md"))
+  // 시스템 프롬프트에 정적 포함되는 파일은 RAG 임베딩에서 제외
+  const STATIC_PROMPT_FILES = new Set(["oheng-relations.md", "sipsin-analysis.md", "life-coaching.md"])
+
+  const files = readdirSync(KNOWLEDGE_DIR).filter(f => f.endsWith(".md") && !STATIC_PROMPT_FILES.has(f))
   console.log(`${files.length}개 지식 파일 발견: ${files.join(", ")}`)
 
   const rows: Array<{

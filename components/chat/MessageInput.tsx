@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { ArrowUp, Plus, X } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { TOPIC_CATEGORIES } from "@/lib/topic-data"
@@ -43,6 +43,13 @@ export default function MessageInput({ onSend, onTopicSelect, disabled, showSugg
   const editorRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // disabled가 풀리면(스트리밍 완료) 자동 포커스
+  useEffect(() => {
+    if (!disabled && editorRef.current) {
+      editorRef.current.focus()
+    }
+  }, [disabled])
+
   const handleInput = useCallback(() => {
     const el = editorRef.current
     if (!el) return
@@ -56,6 +63,7 @@ export default function MessageInput({ onSend, onTopicSelect, disabled, showSugg
     setValue("")
     if (editorRef.current) {
       editorRef.current.textContent = ""
+      editorRef.current.focus()
     }
   }
 
@@ -83,12 +91,12 @@ export default function MessageInput({ onSend, onTopicSelect, disabled, showSugg
       <div className="mx-auto max-w-3xl">
         {/* AI 추천 질문 칩 */}
         {showSuggestions && suggestionsLoading && suggestions.length === 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {Array.from({ length: 7 }).map((_, idx) => (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {Array.from({ length: 5 }).map((_, idx) => (
               <span
                 key={idx}
-                className="inline-flex h-[30px] rounded-full border border-border/40 bg-muted/50 animate-pulse"
-                style={{ width: `${60 + (idx % 3) * 24}px`, animationDelay: `${idx * 100}ms` }}
+                className="inline-flex h-[32px] rounded-full border border-primary/20 bg-primary/5 animate-pulse"
+                style={{ width: `${72 + (idx % 3) * 28}px`, animationDelay: `${idx * 120}ms` }}
               />
             ))}
           </div>
@@ -218,7 +226,7 @@ export default function MessageInput({ onSend, onTopicSelect, disabled, showSugg
             {/* placeholder */}
             {!value && (
               <span className="pointer-events-none absolute inset-0 flex items-center px-2 text-sm text-muted-foreground/50">
-                오늘 어떤 고민이 있나요?
+                무엇이든 편하게 물어보세요
               </span>
             )}
             <div
@@ -228,7 +236,7 @@ export default function MessageInput({ onSend, onTopicSelect, disabled, showSugg
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               role="textbox"
-              aria-placeholder="오늘 어떤 고민이 있나요?"
+              aria-placeholder="무엇이든 편하게 물어보세요"
               className="text-sm leading-relaxed max-h-[160px] overflow-y-auto outline-none whitespace-pre-wrap break-words [&:empty]:min-h-[20px] disabled:opacity-50"
               style={disabled ? { opacity: 0.5, pointerEvents: "none" } : undefined}
             />

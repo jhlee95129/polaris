@@ -58,9 +58,9 @@ interface UserData {
 }
 
 const PACKAGES = [
-  { id: "small", name: "소복채", count: 3, price: "₩1,000", emoji: "💰💰💰" },
-  { id: "medium", name: "중복채", count: 5, price: "₩2,000", emoji: "💰💰💰💰💰" },
-  { id: "large", name: "대복채", count: 10, price: "₩3,500", emoji: "💰💰💰💰💰💰💰💰💰💰" },
+  { id: "small", name: "소복채", count: 3, price: "₩1,000" },
+  { id: "medium", name: "중복채", count: 5, price: "₩2,000" },
+  { id: "large", name: "대복채", count: 10, price: "₩3,500" },
 ]
 
 interface SessionItem {
@@ -86,22 +86,23 @@ function formatRelativeTime(dateStr: string): string {
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
-function BokchaeBadge({ count, animating }: { count: number; animating: boolean }) {
+function BokchaeBadge({ count, animating, onClick }: { count: number; animating: boolean; onClick?: () => void }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
+        <button
+          onClick={onClick}
           className={cn(
-            "rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-sm font-medium text-amber-700 dark:text-amber-300 transition-all duration-300 cursor-help",
+            "rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-sm font-medium text-amber-700 dark:text-amber-300 transition-all duration-300 hover:bg-amber-200 dark:hover:bg-amber-800/40",
             animating && "scale-110 ring-2 ring-amber-400/50"
           )}
           style={animating ? { animation: "shake 0.5s ease-in-out" } : undefined}
         >
           <span className="text-base">💰</span> {count}
-        </span>
+        </button>
       </TooltipTrigger>
       <TooltipContent>
-        <p>질문 1개 = 복채 1개</p>
+        <p>복채 충전하기</p>
       </TooltipContent>
     </Tooltip>
   )
@@ -113,6 +114,7 @@ export default function ChatPage() {
   const [user, setUser] = useState<UserData | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false)
   const [sessions, setSessions] = useState<SessionItem[]>([])
 
@@ -230,6 +232,8 @@ export default function ChatPage() {
 
   // 초기화 중복 방지 (React Strict Mode 대응)
   const initRef = useRef(false)
+  // 복채 부족으로 차단된 토픽 기억 (충전 후 자동 전송)
+  const blockedTopicRef = useRef<string | null>(null)
 
   // 초기 로드
   useEffect(() => {
@@ -273,25 +277,34 @@ export default function ChatPage() {
         const topicTitle = pendingTopic.length > 30 ? pendingTopic.slice(0, 30) + "..." : pendingTopic
         const session = await createNewSession(id, topicTitle, userChar)
         setIsInitializing(false)
-        await autoSendTopic(id, session.id, pendingTopic, [])
+        await autoSendTopic(id, session.id, pendingTopic, [], u.bokchae_count, userChar as CharacterId)
       } else {
         // 복원 대상 세션 결정
         const pendingSession = pendingSessionId ? loadedSessions.find(s => s.id === pendingSessionId) : null
 
         if (pendingSession) {
           // 대시보드에서 명시적으로 선택한 세션 → 캐릭터 무관하게 로드
-          await loadSessionMessages(pendingSession.id)
+          const loaded = await loadSessionMessages(pendingSession.id)
           setIsInitializing(false)
+          // 빈 세션이면 인사 또는 복채 안내 메시지 생성
+          if (loaded.length === 0) {
+            const charId = (pendingSession.character_id || userChar) as CharacterId
+            requestGreeting(id, pendingSession.id, [], u.bokchae_count, charId)
+          }
         } else {
           // 자동 선택: 최근 세션이 현재 캐릭터와 같으면 로드, 아니면 새 세션
           const latestSession = loadedSessions[0] || null
           if (latestSession && latestSession.character_id === userChar) {
-            await loadSessionMessages(latestSession.id)
+            const loaded = await loadSessionMessages(latestSession.id)
             setIsInitializing(false)
+            // 빈 세션이면 인사 또는 복채 안내 메시지 생성
+            if (loaded.length === 0) {
+              requestGreeting(id, latestSession.id, [], u.bokchae_count, userChar as CharacterId)
+            }
           } else {
             const session = await createNewSession(id, undefined, userChar)
             setIsInitializing(false)
-            requestGreeting(id, session.id, [])
+            requestGreeting(id, session.id, [], u.bokchae_count, userChar as CharacterId)
           }
         }
       }
@@ -315,8 +328,8 @@ export default function ChatPage() {
     return session
   }
 
-  // 세션 메시지 로드
-  async function loadSessionMessages(sessionId: string) {
+  // 세션 메시지 로드 (빈 세션 여부 확인용으로 메시지 배열 반환)
+  async function loadSessionMessages(sessionId: string): Promise<ChatMessage[]> {
     setCurrentSessionIdState(sessionId)
 
     const res = await fetch(`/api/sessions/${sessionId}/messages`)
@@ -329,11 +342,12 @@ export default function ChatPage() {
       daeun: user.daeun_current || null,
     } : undefined
 
-    const loadedMessages: ChatMessage[] = (msgData ?? []).map((m: { id: string; role: string; content: string; metadata?: { basis?: ChatMessage["basis"] } | null }) => ({
+    const loadedMessages: ChatMessage[] = (msgData ?? []).map((m: { id: string; role: string; content: string; metadata?: { basis?: ChatMessage["basis"]; isBokchaeMessage?: boolean } | null }) => ({
       id: m.id,
       role: m.role as "user" | "assistant",
       content: m.content,
       ...(m.role === "assistant" ? { basis: m.metadata?.basis ?? fallbackBasis } : {}),
+      ...(m.metadata?.isBokchaeMessage ? { isBokchaeMessage: true } : {}),
     }))
     setMessages(loadedMessages)
 
@@ -343,6 +357,8 @@ export default function ChatPage() {
     } else {
       setSuggestions([])
     }
+
+    return loadedMessages
   }
 
   // 새 대화 버튼
@@ -355,7 +371,14 @@ export default function ChatPage() {
   // 세션 전환
   async function handleSessionSwitch(sessionId: string) {
     if (sessionId === currentSessionId || isStreaming) return
-    await loadSessionMessages(sessionId)
+    blockedTopicRef.current = null
+    const loaded = await loadSessionMessages(sessionId)
+    // 빈 세션이면 인사 또는 복채 안내 메시지 생성
+    if (loaded.length === 0 && userId) {
+      const session = sessions.find(s => s.id === sessionId)
+      const charId = (session?.character_id || user?.character_id || "seonbi") as CharacterId
+      requestGreeting(userId, sessionId, [])
+    }
   }
 
   // 세션 삭제
@@ -371,7 +394,10 @@ export default function ChatPage() {
       // 현재 보고 있던 세션을 삭제한 경우
       if (sessionId === currentSessionId) {
         if (remaining.length > 0) {
-          await loadSessionMessages(remaining[0].id)
+          const loaded = await loadSessionMessages(remaining[0].id)
+          if (loaded.length === 0 && userId) {
+            requestGreeting(userId, remaining[0].id, [])
+          }
         } else {
           // 세션이 모두 없어짐 → 새 세션 생성
           if (userId) {
@@ -400,8 +426,13 @@ export default function ChatPage() {
     }
   }
 
-  // 인사 요청
-  async function requestGreeting(id: string, sessionId: string, currentMessages: ChatMessage[]) {
+  // 인사 요청 (복채 체크 포함)
+  async function requestGreeting(id: string, sessionId: string, currentMessages: ChatMessage[], bokchae?: number, charId?: CharacterId) {
+    const effectiveBokchae = bokchae ?? bokchaeCount
+    if (effectiveBokchae <= 0) {
+      insertBokchaeMessage(charId, id, sessionId)
+      return
+    }
     setIsStreaming(true)
     try {
       const res = await fetch("/api/chat", {
@@ -435,8 +466,18 @@ export default function ChatPage() {
     setIsStreaming(false)
   }
 
-  // 주제 카드 → 자동 전송
-  async function autoSendTopic(id: string, sessionId: string, text: string, currentMessages: ChatMessage[]) {
+  // 주제 카드 → 자동 전송 (복채 체크 포함)
+  async function autoSendTopic(id: string, sessionId: string, text: string, currentMessages: ChatMessage[], bokchae?: number, charId?: CharacterId) {
+    const effectiveBokchae = bokchae ?? bokchaeCount
+    if (effectiveBokchae <= 0) {
+      blockedTopicRef.current = text
+      // 유저 메시지도 표시 (무엇을 물어보려 했는지 보이게)
+      const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", content: text }
+      setMessages(prev => [...prev, userMsg])
+      insertBokchaeMessage(charId, id, sessionId)
+      return
+    }
+
     const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", content: text }
     const updatedMessages = [...currentMessages, userMsg]
     setMessages(updatedMessages)
@@ -452,8 +493,8 @@ export default function ChatPage() {
         const errData = await res.json().catch(() => ({}))
         if (res.status === 402 || errData.error === "bokchae_empty") {
           setBokchaeCount(0)
-          setShowEmptyModal(true)
           setMessages(currentMessages)
+          insertBokchaeMessage(charId, id, sessionId)
           setIsStreaming(false)
           return
         }
@@ -482,7 +523,13 @@ export default function ChatPage() {
   // 토픽 메뉴에서 선택
   async function handleTopicFromMenu(message: string) {
     if (!userId || isStreaming || !message) return
-    if (bokchaeCount <= 0) { setShowEmptyModal(true); return }
+    if (bokchaeCount <= 0) {
+      blockedTopicRef.current = message
+      const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", content: message }
+      setMessages(prev => [...prev, userMsg])
+      insertBokchaeMessage(undefined, userId, currentSessionId || undefined)
+      return
+    }
     const title = message.length > 30 ? message.slice(0, 30) + "..." : message
     const session = await createNewSession(userId, title)
     await autoSendTopic(userId, session.id, message, [])
@@ -492,9 +539,12 @@ export default function ChatPage() {
   const handleSend = useCallback(async (text: string) => {
     if (!userId || !currentSessionId || isStreaming) return
 
-    // 복채 클라이언트 프리체크
+    // 복채 클라이언트 프리체크 — 모달 대신 AI 캐릭터 안내 메시지
     if (bokchaeCount <= 0) {
-      setShowEmptyModal(true)
+      blockedTopicRef.current = text
+      const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", content: text }
+      setMessages(prev => [...prev, userMsg])
+      insertBokchaeMessage(undefined, userId, currentSessionId || undefined)
       return
     }
 
@@ -523,11 +573,11 @@ export default function ChatPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        // 402: 복채 부족
+        // 402: 복채 부족 — AI 캐릭터 안내 메시지
         if (res.status === 402 || errData.error === "bokchae_empty") {
           setBokchaeCount(0)
-          setShowEmptyModal(true)
           setMessages(prev => prev.filter(m => m.id !== userMsg.id))
+          insertBokchaeMessage(undefined, userId, currentSessionId || undefined)
           setIsStreaming(false)
           return
         }
@@ -551,6 +601,7 @@ export default function ChatPage() {
       }])
     }
     setIsStreaming(false)
+    setIsAnalyzing(false)
   }, [userId, currentSessionId, isStreaming, messages, bokchaeCount])
 
   // SSE 스트리밍 읽기
@@ -586,16 +637,25 @@ export default function ChatPage() {
 
         try {
           const parsed = JSON.parse(data)
+          if (parsed.textComplete) {
+            // 텍스트 스트리밍 완료 → 분석 단계 진입
+            setIsAnalyzing(true)
+            // React가 분석중 UI를 렌더링할 수 있도록 이벤트 루프 양보
+            await new Promise(resolve => setTimeout(resolve, 30))
+            continue
+          }
           if (parsed.meta) {
             if (parsed.meta.basis) basis = parsed.meta.basis
             if (parsed.meta.cleanText) assistantContent = parsed.meta.cleanText
             upsertMsg({ id: assistantId, role: "assistant", content: assistantContent, ...(basis ? { basis } : {}) })
+            setIsAnalyzing(false)
             continue
           }
           if (parsed.error) {
             console.error("스트리밍 에러:", parsed.error)
             assistantContent = "미안, 지금 연결에 문제가 생겼어. 잠시 후에 다시 말해줄래?"
             upsertMsg({ id: assistantId, role: "assistant", content: assistantContent })
+            setIsAnalyzing(false)
             return
           }
           if (parsed.text) {
@@ -615,6 +675,71 @@ export default function ChatPage() {
     }
   }
 
+  // 복채 부족 시 AI 캐릭터 안내 메시지 삽입 + DB 저장
+  function insertBokchaeMessage(charId?: CharacterId, uid?: string, sessId?: string) {
+    const effectiveCharId = charId || (() => {
+      const cs = sessions.find(s => s.id === currentSessionId)
+      return (cs?.character_id || user?.character_id || "seonbi") as CharacterId
+    })()
+    const char = CHARACTERS[effectiveCharId]
+    const msgs = char.bokchaeMessages
+    const msg = msgs[Math.floor(Math.random() * msgs.length)]
+    setMessages(prev => [...prev, {
+      id: `bokchae-${Date.now()}`,
+      role: "assistant" as const,
+      content: msg,
+      isBokchaeMessage: true,
+    }])
+
+    // DB에 복채 안내 메시지 저장
+    const saveUid = uid || userId
+    const saveSessId = sessId || currentSessionId
+    if (saveUid && saveSessId) {
+      fetch(`/api/sessions/${saveSessId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: saveUid,
+          role: "assistant",
+          content: msg,
+          metadata: { isBokchaeMessage: true },
+        }),
+      }).catch(err => console.error("복채 메시지 저장 실패:", err))
+    }
+  }
+
+  // 복채 충전 후 차단된 토픽 자동 전송
+  function trySendBlockedTopic(newCount: number) {
+    if (!blockedTopicRef.current || newCount <= 0 || !userId || !currentSessionId) return
+    const topic = blockedTopicRef.current
+    blockedTopicRef.current = null
+    setShowEmptyModal(false)
+    // 복채 state 반영 후 전송 (setTimeout으로 React 배치 이후 실행)
+    setTimeout(() => {
+      // handleSend를 직접 호출하면 클로저 문제 → 직접 API 호출
+      const sessId = currentSessionId
+      if (!sessId) return
+      setIsStreaming(true)
+      fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, session_id: sessId, message: topic }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          setIsStreaming(false)
+          return
+        }
+        setBokchaeCount(prev => Math.max(0, prev - 1))
+        setBokchaeAnimating(true)
+        setTimeout(() => setBokchaeAnimating(false), 600)
+        await readStream(res, messages)
+        setIsStreaming(false)
+      }).catch(() => {
+        setIsStreaming(false)
+      })
+    }, 200)
+  }
+
   // 인라인 체크인
   async function handleInlineCheckin() {
     if (!userId || checkinLoading || checkinDone) return
@@ -631,6 +756,7 @@ export default function ChatPage() {
         setCheckinDone(true)
         setShowEmptyModal(false)
         toast.success("📅 출석 체크인 완료!", { description: `복채 +1 (총 ${data.count}개)`, duration: 2000 })
+        trySendBlockedTopic(data.count)
       } else {
         setCheckinDone(true)
       }
@@ -656,6 +782,7 @@ export default function ChatPage() {
         setBokchaeCount(data.count)
         toast.success(`💰 복채 +${data.added}`, { description: `총 ${data.count}개`, duration: 2000 })
         setShowEmptyModal(false)
+        trySendBlockedTopic(data.count)
       }
     } catch {
       toast.error("충전에 실패했어요")
@@ -680,10 +807,6 @@ export default function ChatPage() {
     } finally {
       setShareLoading(false)
     }
-  }
-
-  function handleReset() {
-    router.replace("/")
   }
 
   if (!user || isInitializing) {
@@ -745,7 +868,6 @@ export default function ChatPage() {
     onNewChat: handleNewChat,
     onSessionDelete: handleSessionDelete,
     onDeleteAllSessions: handleDeleteAllSessions,
-    onReset: handleReset,
     dailyFortune,
   }
 
@@ -788,7 +910,7 @@ export default function ChatPage() {
                         onClick={() => setCharacterDialogOpen(true)}
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                       >
-                        <span className="text-sm">{CHARACTERS[sessionCharacterId]?.emoji || "📜"}</span>
+                        <span className="text-lg leading-none">{CHARACTERS[sessionCharacterId]?.emoji || "📜"}</span>
                         <span className="text-xs font-medium">{CHARACTERS[sessionCharacterId]?.name || "선비"}</span>
                         <ChevronDown className="h-3 w-3" />
                       </button>
@@ -815,10 +937,10 @@ export default function ChatPage() {
                       <p>{shareCopied ? "복사됨!" : "이 대화 공유하기"}</p>
                     </TooltipContent>
                   </Tooltip>
-                  <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} />
+                  <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} onClick={() => router.push("/bokchae")} />
                 </div>
               </div>
-              <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} characterId={sessionCharacterId} />
+              <MessageList messages={messages} isStreaming={isStreaming} isAnalyzing={isAnalyzing} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} characterId={sessionCharacterId} onBokchaeOpen={() => setShowEmptyModal(true)} />
               <MessageInput onSend={handleSend} onTopicSelect={handleTopicFromMenu} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
             </div>
           </ResizablePanel>
@@ -846,7 +968,7 @@ export default function ChatPage() {
               <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
             </button>
             <span className="ml-2 shrink-0">
-              <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} />
+              <BokchaeBadge count={bokchaeCount} animating={bokchaeAnimating} onClick={() => router.push("/bokchae")} />
             </span>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -855,7 +977,7 @@ export default function ChatPage() {
                   className="ml-1 p-1.5 rounded-lg hover:bg-muted transition-colors"
                   aria-label="캐릭터 변경"
                 >
-                  <span className="text-sm">{CHARACTERS[sessionCharacterId]?.emoji || "📜"}</span>
+                  <span className="text-lg leading-none">{CHARACTERS[sessionCharacterId]?.emoji || "📜"}</span>
                 </button>
               </TooltipTrigger>
               <TooltipContent>
@@ -983,7 +1105,7 @@ export default function ChatPage() {
           </SheetContent>
         </Sheet>
 
-        <MessageList messages={messages} isStreaming={isStreaming} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} characterId={sessionCharacterId} />
+        <MessageList messages={messages} isStreaming={isStreaming} isAnalyzing={isAnalyzing} ilgan={user.ilgan} displayName={user.display_name || undefined} scrollTrigger={suggestions.length} characterId={sessionCharacterId} onBokchaeOpen={() => setShowEmptyModal(true)} />
         <MessageInput onSend={handleSend} onTopicSelect={handleTopicFromMenu} disabled={isStreaming} showSuggestions={showSuggestions} suggestions={suggestions} suggestionsLoading={suggestionsLoading} />
       </div>
 
@@ -1033,7 +1155,6 @@ export default function ChatPage() {
                   disabled={!!purchaseLoading}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 p-3 transition-all disabled:opacity-50"
                 >
-                  <span className="text-lg">{pkg.emoji}</span>
                   <p className="text-xs font-semibold">{pkg.name}</p>
                   <p className="text-lg font-bold text-primary">{pkg.count}개</p>
                   <p className="text-[10px] text-muted-foreground line-through">{pkg.price}</p>
