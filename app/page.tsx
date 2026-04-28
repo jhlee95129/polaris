@@ -117,61 +117,118 @@ function PillarMini() {
   )
 }
 
+/* ── 데모용 아바타 컴포넌트 ── */
+function DemoAiAvatar({ emoji, name, bgClass, nameClass }: { emoji: string; name: string; bgClass: string; nameClass: string }) {
+  return (
+    <div className="shrink-0 flex flex-col items-center gap-0.5">
+      <div className={`flex items-center justify-center h-9 w-9 rounded-full ${bgClass} shadow-sm`}>
+        <span className="text-base leading-none">{emoji}</span>
+      </div>
+      <span className={`text-[10px] ${nameClass} font-medium`}>{name}</span>
+    </div>
+  )
+}
+
+function DemoUserAvatar() {
+  return (
+    <div className="shrink-0 flex flex-col items-center gap-0.5">
+      <div className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10 border border-primary/20">
+        <span className="text-base leading-none">🔥</span>
+      </div>
+      <span className="text-[10px] text-muted-foreground font-medium">지은</span>
+    </div>
+  )
+}
+
 /* ── 확장 대화 데모 ── */
 function ChatDemo() {
   return (
     <div className="mx-auto w-full max-w-lg">
-      <div className="saju-card-border overflow-hidden rounded-2xl bg-card shadow-lg">
-        {/* 채팅 헤더 */}
-        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
-          <Star className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-semibold text-primary">폴라리스</span>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+        {/* 채팅 헤더 — 실제 UI 반영 */}
+        <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <Star className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-semibold text-primary">폴라리스</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-1">
+            <span className="text-xs">💰</span>
+            <span className="text-xs font-bold text-amber-700 dark:text-amber-300">3</span>
+          </div>
         </div>
 
-        <div className="space-y-3 p-4">
+        <div className="space-y-4 p-4">
           {/* 유저 1 */}
           <div className="flex justify-end" style={{ animation: "fadeInUp 0.5s ease 0.2s both" }}>
-            <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-primary/10 px-3.5 py-2">
-              <p className="text-sm">요즘 이직할까 고민이야...</p>
+            <div className="flex items-start gap-2.5 max-w-[80%]">
+              <div className="rounded-2xl rounded-br-sm bg-primary text-white px-4 py-2.5 shadow-sm">
+                <p className="text-sm">요즘 이직할까 고민이야...</p>
+              </div>
+              <DemoUserAvatar />
             </div>
           </div>
 
-          {/* 폴라리스 1 */}
+          {/* 선녀 응답 */}
           <div className="flex justify-start" style={{ animation: "fadeInUp 0.5s ease 0.5s both" }}>
-            <div className="max-w-[85%] space-y-1.5">
-              <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-3.5 py-2">
-                <p className="text-sm leading-relaxed">
-                  지은아, 지금 네 대운이 신금 흐름이라 직장에서 압박감이 꽤 클 시기야.
-                  편관의 기운이 강해서 윗사람과 부딪히기 쉽거든.
-                  <br />
-                  <span className="mt-1 inline-block text-muted-foreground">
-                    지금 당장 뛰쳐나가기보다, 정말 원하는 게 뭔지 먼저 정리해볼래?
-                  </span>
-                </p>
+            <div className="max-w-[80%]">
+              <div className="flex items-start gap-2.5">
+                <DemoAiAvatar
+                  emoji="🌸"
+                  name="선녀"
+                  bgClass="bg-gradient-to-br from-sky-100 to-sky-200 dark:from-sky-900/40 dark:to-sky-800/30"
+                  nameClass="text-sky-700 dark:text-sky-300"
+                />
+                <div className="rounded-2xl rounded-bl-sm border border-border border-l-2 border-l-sky-300/50 dark:border-l-sky-600/30 bg-card px-4 py-2.5 shadow-sm">
+                  <p className="text-sm leading-relaxed">
+                    지은아, 지금 네 대운이 신금 흐름이라 직장에서 압박감이 꽤 클 시기야.
+                    편관의 기운이 강해서 윗사람과 부딪히기 쉽거든.
+                    <span className="mt-1 block text-muted-foreground">
+                      지금 당장 뛰쳐나가기보다, 정말 원하는 게 뭔지 먼저 정리해볼래?
+                    </span>
+                  </p>
+                </div>
               </div>
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground">
-                <BookOpen className="h-3 w-3" /> 상세 분석 보기
-              </span>
+              <div className="ml-12 mt-1.5">
+                <span className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 shadow-sm">
+                  <span className="flex items-center justify-center h-4 w-4 rounded-md bg-amber-100 dark:bg-amber-900/60 border border-amber-200/80 dark:border-amber-700/60">
+                    <BookOpen className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                  </span>
+                  상세 분석 보기
+                </span>
+              </div>
             </div>
           </div>
 
           {/* 유저 2 */}
           <div className="flex justify-end" style={{ animation: "fadeInUp 0.5s ease 0.8s both" }}>
-            <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-primary/10 px-3.5 py-2">
-              <p className="text-sm">사실 팀장이랑 매일 부딪혀...</p>
+            <div className="flex items-start gap-2.5 max-w-[80%]">
+              <div className="rounded-2xl rounded-br-sm bg-primary text-white px-4 py-2.5 shadow-sm">
+                <p className="text-sm">사실 팀장이랑 매일 부딪혀...</p>
+              </div>
+              <DemoUserAvatar />
             </div>
           </div>
 
-          {/* 폴라리스 2 */}
+          {/* 선녀 응답 2 */}
           <div className="flex justify-start" style={{ animation: "fadeInUp 0.5s ease 1.1s both" }}>
-            <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-card px-3.5 py-2">
-              <p className="text-sm leading-relaxed">
-                그 답답함 충분히 이해해. 네 일간이 병화라 솔직하고 직선적인데,
-                편관 시기엔 그게 오히려 더 충돌하기 쉬워.
-                <span className="mt-1 inline-block text-muted-foreground">
-                  팀장이랑 부딪힐 때 제일 힘든 상황이 뭐야?
-                </span>
-              </p>
+            <div className="max-w-[80%]">
+              <div className="flex items-start gap-2.5">
+                <DemoAiAvatar
+                  emoji="🌸"
+                  name="선녀"
+                  bgClass="bg-gradient-to-br from-sky-100 to-sky-200 dark:from-sky-900/40 dark:to-sky-800/30"
+                  nameClass="text-sky-700 dark:text-sky-300"
+                />
+                <div className="rounded-2xl rounded-bl-sm border border-border border-l-2 border-l-sky-300/50 dark:border-l-sky-600/30 bg-card px-4 py-2.5 shadow-sm">
+                  <p className="text-sm leading-relaxed">
+                    그 답답함 충분히 이해해. 네 일간이 <strong className="font-semibold text-foreground/90">병화</strong>라 솔직하고 직선적인데,
+                    편관 시기엔 그게 오히려 더 충돌하기 쉬워.
+                    <span className="mt-1 block text-muted-foreground">
+                      팀장이랑 부딪힐 때 제일 힘든 상황이 뭐야?
+                    </span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -185,13 +242,23 @@ function ChatDemo() {
             <div className="h-px flex-1 border-t border-dashed border-border" />
           </div>
 
-          {/* 폴라리스 3 — 기억 */}
+          {/* 선녀 3 — 기억 */}
           <div className="flex justify-start" style={{ animation: "fadeInUp 0.5s ease 1.7s both" }}>
-            <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-primary/20 bg-primary/[0.03] px-3.5 py-2">
-              <p className="text-sm leading-relaxed">
-                지은아, 지난번 팀장 얘기 어떻게 됐어?
-                혹시 그 후로 달라진 거 있어?
-              </p>
+            <div className="max-w-[80%]">
+              <div className="flex items-start gap-2.5">
+                <DemoAiAvatar
+                  emoji="🌸"
+                  name="선녀"
+                  bgClass="bg-gradient-to-br from-sky-100 to-sky-200 dark:from-sky-900/40 dark:to-sky-800/30"
+                  nameClass="text-sky-700 dark:text-sky-300"
+                />
+                <div className="rounded-2xl rounded-bl-sm border border-primary/20 border-l-2 border-l-sky-300/50 dark:border-l-sky-600/30 bg-primary/[0.03] px-4 py-2.5 shadow-sm">
+                  <p className="text-sm leading-relaxed">
+                    지은아, 지난번 팀장 얘기 어떻게 됐어?
+                    혹시 그 후로 달라진 거 있어?
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -451,9 +518,9 @@ export default function LandingPage() {
               },
               {
                 icon: Heart,
-                title: "판단 없이, 네 편에서",
-                tag: "공감 기반 코칭",
-                desc: "정답을 강요하지 않아. 네 감정을 먼저 받아주고, 사주 흐름에 맞는 방향을 함께 찾아가는 따뜻한 코치.",
+                title: "5명의 코치, 네 취향대로",
+                tag: "코칭 캐릭터 선택",
+                desc: "따뜻한 선녀, 직설적인 장군, 신비로운 무녀, 학자풍 선비, 유쾌한 도깨비 — 같은 사주도 캐릭터마다 다른 시선으로 코칭해줘.",
               },
             ].map(f => (
               <div

@@ -811,30 +811,116 @@ export default function ChatPage() {
 
   if (!user || isInitializing) {
     return (
-      <div className="flex min-h-svh animate-pulse">
+      <div className="flex h-[calc(100svh-49px)] animate-pulse">
         {/* 사이드바 스켈레톤 (데스크톱) */}
-        <div className="hidden md:flex w-72 flex-col border-r border-border bg-card p-4 space-y-4">
-          <div className="h-8 w-32 rounded-lg bg-muted" />
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-10 rounded-xl bg-muted" />
-            ))}
+        <div className="hidden md:flex w-72 flex-col border-r border-border bg-card">
+          {/* 프로필 영역 */}
+          <div className="p-3 pb-2 border-b border-border space-y-3">
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+              {/* 아바타 + 이름 + 일간 배지 */}
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-primary/10 shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-4 w-16 rounded bg-muted" />
+                  <div className="h-3 w-28 rounded bg-muted/60" />
+                </div>
+                <div className="h-6 w-14 rounded-full bg-muted shrink-0" />
+              </div>
+              {/* 사주 4기둥 */}
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="rounded-xl bg-muted/50 py-2.5 text-center space-y-1">
+                    <div className="h-2.5 w-6 mx-auto rounded bg-muted/70" />
+                    <div className="h-3.5 w-8 mx-auto rounded bg-muted" />
+                    <div className="h-2.5 w-10 mx-auto rounded bg-muted/50" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* 오늘의 한수 카드 */}
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+              <div className="h-3.5 w-24 rounded bg-muted" />
+              <div className="space-y-1.5">
+                <div className="h-3 w-full rounded bg-muted/60" />
+                <div className="h-3 w-4/5 rounded bg-muted/60" />
+              </div>
+            </div>
+          </div>
+          {/* 대화 목록 */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="p-3 pb-1.5 flex items-center justify-between">
+              <div className="h-3 w-14 rounded bg-muted/70" />
+              <div className="h-6 w-16 rounded-lg bg-muted/50" />
+            </div>
+            <div className="px-2 space-y-0.5">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="px-3 py-2 rounded-xl space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-4 w-4 rounded bg-muted/60 shrink-0" />
+                    <div className="h-3.5 rounded bg-muted" style={{ width: `${60 + i * 15}%` }} />
+                  </div>
+                  <div className="h-2.5 w-12 rounded bg-muted/40 ml-5.5" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         {/* 채팅 영역 스켈레톤 */}
         <div className="flex-1 flex flex-col">
-          <div className="h-12 border-b border-border bg-card" />
-          <div className="flex-1 p-4 space-y-4">
-            <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-full bg-muted shrink-0" />
-              <div className="h-16 w-2/3 rounded-2xl bg-muted" />
+          {/* 헤더 */}
+          <div className="flex items-center justify-between px-6 py-3 border-b border-border/50 bg-background/80">
+            <div className="flex items-center gap-2.5">
+              <div className="h-5 w-5 rounded bg-muted/60" />
+              <div className="h-4 w-20 rounded bg-muted" />
             </div>
-            <div className="flex gap-3 justify-end">
-              <div className="h-10 w-1/2 rounded-2xl bg-muted" />
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1">
+                <div className="h-5 w-5 rounded bg-muted/60" />
+                <div className="h-3 w-8 rounded bg-muted/50" />
+              </div>
+              <div className="h-7 w-7 rounded-lg bg-muted/40" />
+              <div className="h-7 w-14 rounded-full bg-amber-100/60 dark:bg-amber-900/20" />
             </div>
           </div>
+          {/* 메시지 스켈레톤 */}
+          <div className="flex-1 p-4 space-y-5 max-w-3xl mx-auto w-full">
+            {/* AI 메시지 */}
+            <div className="flex gap-3 items-start">
+              <div className="shrink-0 flex flex-col items-center gap-0.5">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/20" />
+                <div className="h-2 w-6 rounded bg-muted/50" />
+              </div>
+              <div className="flex-1 space-y-2 rounded-2xl rounded-bl-sm border border-border border-l-2 border-l-purple-300/50 dark:border-l-purple-600/30 bg-card px-4 py-3">
+                <div className="h-3.5 w-full rounded bg-muted/60" />
+                <div className="h-3.5 w-5/6 rounded bg-muted/60" />
+                <div className="h-3.5 w-3/4 rounded bg-muted/40" />
+              </div>
+            </div>
+            {/* 유저 메시지 */}
+            <div className="flex justify-end">
+              <div className="h-10 w-2/5 rounded-2xl rounded-br-sm bg-primary/20" />
+            </div>
+            {/* AI 메시지 (길게) */}
+            <div className="flex gap-3 items-start">
+              <div className="shrink-0 flex flex-col items-center gap-0.5">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/20" />
+                <div className="h-2 w-6 rounded bg-muted/50" />
+              </div>
+              <div className="flex-1 space-y-2 rounded-2xl rounded-bl-sm border border-border border-l-2 border-l-purple-300/50 dark:border-l-purple-600/30 bg-card px-4 py-3">
+                <div className="h-3.5 w-full rounded bg-muted/60" />
+                <div className="h-3.5 w-full rounded bg-muted/60" />
+                <div className="h-3.5 w-4/5 rounded bg-muted/50" />
+                <div className="h-3.5 w-2/3 rounded bg-muted/40" />
+                <div className="mt-3 h-9 w-32 rounded-xl bg-muted/50" />
+              </div>
+            </div>
+          </div>
+          {/* 입력 영역 */}
           <div className="p-3 pb-6">
-            <div className="mx-auto max-w-3xl h-[52px] rounded-2xl bg-muted" />
+            <div className="mx-auto max-w-3xl flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="flex-1 h-5 rounded bg-muted/40" />
+              <div className="h-8 w-8 rounded-xl bg-muted/50 shrink-0" />
+            </div>
           </div>
         </div>
       </div>
